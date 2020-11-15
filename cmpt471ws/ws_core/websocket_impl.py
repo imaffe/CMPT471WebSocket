@@ -4,7 +4,7 @@ import queue
 class WebsocketImpl:
     # some default values
     DEFAULT_PORT = 80
-    DEFAULT_RCV_BUF_SIZE = 16384
+
     # role enums
     ROLE_SERVER = "server"
     ROLE_CLIENT = "client"
@@ -56,8 +56,50 @@ class WebsocketImpl:
         # TODO should this be blocking ? yes
         return self.out_queue.get(True, None)
 
+
+    """
+    Actually the implementation here is a bit confusing, cause we delegate the decoding of data frames to
+    the WebsocketProtocolImpl class, on the other hand, the decoding of handshake is implemented within this
+    class. Still wondering why would we do this~ 
+    """
     def decode(self, data):
+        assert data is not None
+        assert len(data) > 0
+
+        if self.ready_state != WebsocketImpl.STATE_NOT_YET_CONNECTED:
+            if self.ready_state == WebsocketImpl.STATE_OPEN:
+                self.decodeFrames(data)
+        else:
+            # we are still decoding handshake
+            handshake_result, remaining = self.decodeHandshake(data)
+            # we need to know how many data are left
+            if handshake_result and not self._isClosing() and not self._isClosed():
+                assert remaining is not None
+                # There are some other assertions, as we start to implement more
+                if len(remaining) > 0:
+                    self.decodeFrames(data)
+
+
+    def decodeFrames(self, data):
         pass
+
+
+    # this method should return if the handshake decodeing has completed, and if completed how many bytes
+    # we used in current data.
+
+    def decodeHandshake(self, data):
+        pass
+
+
+    ### The following method is for Closing a websocket session gracefully, include CLOSE frames.
+
+    def _isClosing(self):
+        return self.ready_state == WebsocketImpl.STATE_CLOSING
+
+    def _isClosed(self):
+        return self.ready_state == WebsocketImpl.STATE_CLOSED
+
+
 
 
 

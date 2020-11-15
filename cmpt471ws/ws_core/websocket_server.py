@@ -111,7 +111,10 @@ class WebsocketServer:
         sock = ws_impl.wrapped_socket
         # read data from socket
         data = WebsocketHelper.read(ws_impl, sock)
+        assert data is not None
         size = len(data)
+        assert size > 0
+
 
         ws_impl.put_inqueue(data)
         self.assign_executor(ws_impl)
