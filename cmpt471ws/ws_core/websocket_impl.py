@@ -1,6 +1,7 @@
 
 import queue
 
+# TODO this class corresponds to a Protocol Instance
 class WebsocketImpl:
     # some default values
     DEFAULT_PORT = 80
@@ -62,6 +63,7 @@ class WebsocketImpl:
     the WebsocketProtocolImpl class, on the other hand, the decoding of handshake is implemented within this
     class. Still wondering why would we do this~ 
     """
+    # TODO this can be refactored to use decode data
     def decode(self, data):
         assert data is not None
         assert len(data) > 0
