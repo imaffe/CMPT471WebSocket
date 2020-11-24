@@ -33,6 +33,6 @@ class WebsocketDraft:
 
     # client-only method
 
-    def post_process_handshake_repsonse_as_client(self, handshake, response):
+    def post_process_handshake_request_as_client(self, handshake, response):
         # TODO
         pass

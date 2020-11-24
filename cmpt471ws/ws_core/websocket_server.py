@@ -12,6 +12,7 @@ class WebsocketServer:
     LISTEN_QUEUE_SIZE = 5
     LISTEN_SOCKET_ID = "sys-listen-socket"
     CONCURRENT_DECODER_NUM = 6
+
     def __init__(self,
                  port: int,
                  host: str,
@@ -21,7 +22,8 @@ class WebsocketServer:
         self.host = host
         self.executors_nums = WebsocketServer.CONCURRENT_DECODER_NUM
         self.listen_queue_size = WebsocketServer.LISTEN_QUEUE_SIZE
-
+        # This is used for broadcast messages, can be ignored
+        self.connections = []
 
     def shutdown(self):
         pass
@@ -31,15 +33,12 @@ class WebsocketServer:
         self.socket.setblocking(False) # non-blocking TCP socket
         self.socket.bind((self.host, self.port))
         self.socket.listen(self.listen_queue_size)
-
         # self.input_sockets = [self.socket]
         # self.output_sockets = []
         # self.message_queues = {}
-
         # use selector module instead of select directly
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.socket, selectors.EVENT_READ, WebsocketServer.LISTEN_SOCKET_ID)
-
         # use to track how many times we assign a new client an executor
         self.queue_invoke_times = 0
         # initialize executors
@@ -49,7 +48,6 @@ class WebsocketServer:
 
         self.running_status = "RUNNING" # change to use enum
 
-
         main_thread = Thread(target=self.server_loop())
         main_thread.start()
 
@@ -57,22 +55,17 @@ class WebsocketServer:
         for exec in self.executors:
             exec.start()
 
-
         # merge these thread, we might have concurrency issues
         main_thread.join()
 
         for exec in self.executors:
             exec.join()
 
-
-
-
     def server_loop(self):
         while self.running_status == "RUNNING":
             events = self.selector.select()
             for key, event_type in events:
                 self.dispatch(key, event_type)
-
 
     def dispatch(self, key, event_type):
 
@@ -85,7 +78,6 @@ class WebsocketServer:
             self.do_read(key, event_type)
         elif event_type & selectors.EVENT_WRITE:
             self.do_write(key, event_type)
-
 
     # called everytime a new client is trying to connect to current server
     def do_accept(self, key, event_type):
@@ -107,7 +99,6 @@ class WebsocketServer:
     def do_read(self, key, event_type):
         assert event_type & selectors.EVENT_READ
         ws_impl = key.data
-
         # retrieve the socket from ws_impl
         sock = ws_impl.wrapped_socket
         # read data from socket
@@ -115,14 +106,9 @@ class WebsocketServer:
         assert data is not None
         size = len(data)
         assert size > 0
-
-
         ws_impl.put_inqueue(data)
         self.assign_executor(ws_impl)
         # TODO potentially we will use a global thread pool, instead of using per ws_impl thread
-
-
-
 
     # TODO we are not handling any error here , should we add err handling code ?
     def do_write(self, key, event_type):
@@ -137,52 +123,13 @@ class WebsocketServer:
         # update the ws_impl's key
         ws_impl.set_key(new_key)
 
-
-    def on_write_demand(self, ws_impl: WebsocketImpl):
-        # This method actually do the write job
-        fileobj = ws_impl.wrapped_socket
-
-        # need to register READ | WRITE events for this socket
-        new_key = self.selector.modify(fileobj, selectors.EVENT_WRITE | selectors.EVENT_READ, ws_impl)
-        ws_impl.set_key(new_key)
-
-        # in java version, they called a selector.wakeup(), but we didn't found corresponding method
-        # perhaps the modfiy would restart the select() execution
-
-
     def assign_executor(self, ws_impl: WebsocketImpl):
         if ws_impl.executor is None:
             ws_impl.set_executor(self.executors[self.queue_invoke_times % self.executors_nums])
             self.queue_invoke_times += 1
         ws_impl.executor.put_ws_queue(ws_impl)
 
-
-    ### handshake
-    def on_handshake_as_server(self):
-        """
-        :return: handshake response
-        """
-        # TODO
-        pass
-
-    def on_handshake_as_client(self):
-        print("error on_handshake_as_client called by a server\n")
-        return None
-
-
-    ### The following method are callbacks exposed to WebsocketImpl,
-
-    def on_websocket_message(self, ws_impl: WebsocketImpl, message):
-        pass
-
-    def on_websocket_open(self, ws_impl: WebsocketImpl, message):
-        pass
-
-    def on_websocket_close(self, ws_impl: WebsocketImpl, message):
-        pass
-    ### The following method should be exposed to user applications and should be overwritten
-
-    # sync
+    # The following method should be exposed to user applications and should be overwritten
     def broadcast(self, message: str):
         pass
 
@@ -195,5 +142,51 @@ class WebsocketServer:
 
     def on_close(self, ws_impl: WebsocketImpl):
         pass
+
+    # The following method are callbacks exposed to WebsocketImpl,
+    def on_websocket_message(self, ws_impl: WebsocketImpl, message):
+        self.on_message(ws_impl, message)
+
+    def on_websocket_open(self, ws_impl: WebsocketImpl, message):
+        """"""
+        # TODO add connection in the managed connections
+        if self._add_connection(ws_impl):
+            self.on_open(ws_impl)
+        else:
+            print("Error server add ws_impl after handshake failed\n")
+
+    def on_websocket_close(self, ws_impl: WebsocketImpl, message):
+        pass
+
+    def on_handshake_as_server(self):
+        """
+        :return: handshake response
+        """
+        # TODO
+        pass
+
+    def on_handshake_as_client(self):
+        print("error on_handshake_as_client called by a server\n")
+        return None
+
+    def on_write_demand(self, ws_impl: WebsocketImpl):
+        # This method actually do the write job
+        fileobj = ws_impl.wrapped_socket
+
+        # need to register READ | WRITE events for this socket
+        new_key = self.selector.modify(fileobj, selectors.EVENT_WRITE | selectors.EVENT_READ, ws_impl)
+        ws_impl.set_key(new_key)
+
+        # in java version, they called a selector.wakeup(), but we didn't found corresponding method
+        # perhaps the modify would restart the select() execution
+
+    def _add_connection(self, ws_impl: WebsocketImpl):
+        """
+        called when handshake finishes, add current connection to the managed ws connections
+        :return:
+        """
+        self.connections.append(ws_impl)
+        # TODO if the server is closing then we should send close frames.
+
 
 

@@ -2,4 +2,7 @@
 
 class BaseHandshake():
     def __init__(self):
-        pass
+        self.kvmap = {}
+
+    def put(self, key: str, value: str):
+        self.kvmap[key] = value

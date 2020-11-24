@@ -3,6 +3,7 @@ from threading import Thread
 
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
 from cmpt471ws.ws_core.common import WebsocketCommon
+from cmpt471ws.ws_core.server_handshake import ServerHandshake
 from cmpt471ws.ws_core.websocket_draft import WebsocketDraft
 from cmpt471ws.ws_core.websocket_impl import WebsocketImpl
 
@@ -109,22 +110,45 @@ class WebsocketClient:
         assert isinstance(self.host, str)
         host_and_port = self.host + str(self.port)
         client_handshake.put("Host", host_and_port)
+        # Add headers to the handshake
+        for key, value in self.headers.items():
+            client_handshake.put(key, value)
 
+        self.ws_impl.start_handshake(client_handshake)
 
-    def on_websocket_message(self, message: str):
+    # needs to be override by user application
+    def on_open(self, ws_impl: WebsocketImpl, handshake):
         pass
 
-
-    def on_message(self, message: str):
+    def on_message(self, ws_impl: WebsocketImpl, message: str):
         pass
 
-
-
-    def on_websocket_open(self, handshake):
+    def on_close(self, ws_impl: WebsocketImpl, message: str):
         pass
 
+    # needs to be implemented as listener
+    def on_websocket_open(self, ws_impl: WebsocketImpl,  handshake):
+        assert isinstance(handshake, ServerHandshake)
+        self.on_open(ws_impl, handshake)
 
-    def on_open(self, handshake):
+    def on_websocket_message(self, ws_impl: WebsocketImpl, message: str):
+        self.on_message(ws_impl, message)
+
+    def on_websocket_close(self, ws_impl: WebsocketImpl, message):
+        self.on_close(ws_impl, message)
+
+    def on_handshake_as_server(self):
+        print("error on_handshake_as_server called by a client\n")
+        return None
+
+    def on_handshake_as_client(self):
+        pass
+
+    def on_write_demand(self, ws_impl: WebsocketImpl):
+        """
+        Since this is client, write demand doesn't need to do anything
+        :return:
+        """
         pass
 
     # we will ignore close for now

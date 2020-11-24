@@ -1,6 +1,7 @@
 
 import queue
 
+from cmpt471ws.ws_core.base_handshake import BaseHandshake
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
 from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.server_handshake import ServerHandshake
@@ -33,16 +34,14 @@ class WebsocketImpl:
 
         self.resource_descriptor = None
 
-
         # The following attributes are necessary for managing websocket protocol states
         self.ready_state = WebsocketCommon.STATE_NOT_YET_CONNECTED
+
     def set_key(self, selection_key):
         self.key = selection_key
 
-
     def set_wrapped_socket(self, wrapped_socket):
         self.wrapped_socket = wrapped_socket
-
 
     def set_executor(self, executor):
         self.executor = executor
@@ -59,7 +58,6 @@ class WebsocketImpl:
     def get_outqueue(self):
         # TODO should this be blocking ? yes
         return self.out_queue.get(True, None)
-
 
     """
     Actually the implementation here is a bit confusing, cause we delegate the decoding of data frames to
@@ -87,11 +85,7 @@ class WebsocketImpl:
     def decode_frames(self, data):
         pass
 
-
     # this method should return if the handshake decodeing has completed, and if completed how many bytes
-    # we used in current data.
-
-
     def decode_handshake(self, data):
         """
         :param data:
@@ -127,7 +121,6 @@ class WebsocketImpl:
                 # TODO still not complete, move on
                 pass
 
-
         elif self.role == WebsocketCommon.ROLE_SERVER:
             pass
         else:
@@ -135,7 +128,7 @@ class WebsocketImpl:
             print("invalid role\n")
 
 
-    ### common funcionality
+    # common funcionality
     # TODO how python defines typing
     # TODO how does python supports overloading
     def write(self, data_list: list[bytearray]):
@@ -148,23 +141,33 @@ class WebsocketImpl:
         for data in data_list:
             self.put_outqueue(data)
             # inform the client or server
-            self.listener.on_write_demand()
+            self.listener.on_write_demand(self)
 
-    def open(self, handshake):
+    # TODO is it ok to use it this way ?
+    def open(self, handshake: BaseHandshake):
         self.ready_state = WebsocketCommon.STATE_OPEN
         # TODO why pass self to it
         result = self.listener.on_websocket_open(self, handshake)
         if not result:
             print("on_websokcet_open failed\n")
 
-
-    ### The following method is for Closing a websocket session gracefully, include CLOSE frames.
-
+    # The following method is for Closing a websocket session gracefully, include CLOSE frames.
     def is_closing(self):
         return self.ready_state == WebsocketCommon.STATE_CLOSING
 
     def is_closed(self):
         return self.ready_state == WebsocketCommon.STATE_CLOSED
+
+    # For clients only
+    def start_handshake(self, handshake: ClientHandshake):
+        # TO
+        handshake_req = self.draft.post_process_handshake_request_as_client(handshake)
+
+        # TODO should notify the listener that the handshake has been sent, ignore this for now
+
+        # send the handshake to
+        handshake_bytearrays = self.draft.create_handshake(handshake_req)
+        self.write(handshake_bytearrays)
 
 
 
