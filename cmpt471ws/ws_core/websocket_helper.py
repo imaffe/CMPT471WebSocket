@@ -1,9 +1,11 @@
 
 import socket
+
+from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.websocket_impl import WebsocketImpl
 
 class WebsocketHelper:
-    DEFAULT_RCV_BUF_SIZE = 16384
+
     def __init__(self):
         pass
 
@@ -16,7 +18,7 @@ class WebsocketHelper:
     @classmethod
     def read(cls, ws_impl: WebsocketImpl, sock: socket.socket):
         # TODO this should always be non-blocking
-        data = sock.recv(WebsocketHelper.DEFAULT_RCV_BUF_SIZE)
+        data = sock.recv(WebsocketCommon.DEFAULT_RCV_BUF_SIZE)
         if not data:
             pass
             # TODO we should log something here

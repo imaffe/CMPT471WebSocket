@@ -166,7 +166,7 @@ class WebsocketServer:
         pass
 
     def on_handshake_as_client(self):
-        print("error on_handshake_as_client called by a server")
+        print("error on_handshake_as_client called by a server\n")
         return None
 
 

@@ -5,7 +5,7 @@ from cmpt471ws.ws_core.websocket_server import WebsocketServer
 def main():
     server = ChatServer("127.0.0.1", 8100)
     server.start()
-    print("chat server started")
+    print("chat server started\n")
 
 
 
@@ -15,14 +15,14 @@ class ChatServer(WebsocketServer):
         WebsocketServer.__init__(self, host, port)
 
     def on_open(self, ws_impl: WebsocketImpl):
-        print("Server on_open() called, connection established")
+        print("Server on_open() called, connection established\n")
         self.broadcast("Server got a new connection")
         # TODO server currently  do not support send
 
 
 
     def on_message(self, ws_impl: WebsocketImpl, message):
-        print("Server received message:", message)
+        print("Server received message:", message + "\n")
         self.broadcast("server got your message, this is a broad cast message LOL")
 
 

@@ -1,5 +1,6 @@
+from cmpt471ws.ws_core.base_handshake import BaseHandshake
 
 
-class ServerHandshake():
+class ServerHandshake(BaseHandshake):
     def __init__(self):
-        pass
+        BaseHandshake.__init__()

@@ -77,7 +77,7 @@ class WebsocketImpl:
             # we are still decoding handshake
             handshake_result, remaining = self.decode_handshake(data)
             # we need to know how many data are left
-            if handshake_result and not self._is_closing() and not self._is_closed():
+            if handshake_result and not self.is_closing() and not self.is_closed():
                 assert remaining is not None
                 # There are some other assertions, as we start to implement more
                 if len(remaining) > 0:
@@ -101,7 +101,7 @@ class WebsocketImpl:
         if self.role == WebsocketCommon.ROLE_SERVER:
             handshake = self.draft.translate_handshake(data)
             if not isinstance(handshake, ClientHandshake):
-                print("error server received non ClientHandshake")
+                print("error server received non ClientHandshake\n")
 
             handshake_state = self.draft.accept_handshake_as_server(handshake)
 
@@ -113,7 +113,7 @@ class WebsocketImpl:
                 self.resource_descriptor = handshake.resource_descriptor
                 response = self.listener.on_handshake_as_server()
                 if response is None:
-                    print("error when server listener build handshake response")
+                    print("error when server listener build handshake response\n")
                     return False
 
                 # we need the tmp response to add AOP features
@@ -132,7 +132,7 @@ class WebsocketImpl:
             pass
         else:
             # TODO should raise exception
-            print("invalid role")
+            print("invalid role\n")
 
 
     ### common funcionality
@@ -155,15 +155,15 @@ class WebsocketImpl:
         # TODO why pass self to it
         result = self.listener.on_websocket_open(self, handshake)
         if not result:
-            print("on_websokcet_open failed")
+            print("on_websokcet_open failed\n")
 
 
     ### The following method is for Closing a websocket session gracefully, include CLOSE frames.
 
-    def _is_closing(self):
+    def is_closing(self):
         return self.ready_state == WebsocketCommon.STATE_CLOSING
 
-    def _is_closed(self):
+    def is_closed(self):
         return self.ready_state == WebsocketCommon.STATE_CLOSED
 
 
