@@ -3,6 +3,6 @@ from cmpt471ws.ws_core.base_handshake import BaseHandshake
 
 class ClientHandshake(BaseHandshake):
     def __init__(self):
-        BaseHandshake.__init__()
+        BaseHandshake.__init__(self)
         self.resource_descriptor = None
 

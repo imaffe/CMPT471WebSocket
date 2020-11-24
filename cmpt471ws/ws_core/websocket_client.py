@@ -34,16 +34,18 @@ class WebsocketClient:
         self.socket.settimeout(500)
         try:
             self.socket.connect((self.host, self.port))
-            self._send_handshake()
-        except OSError:
-            print("OSError while trying to connect to Websocket Server\n")
-            self.socket.close()
-        except:
+
+        except Exception as e:
+            print(e)
             print("Error while trying to connect to Websocket Server\n")
             self.socket.close()
+            return
+
+        print("client connect success, trying to send handshakes")
+        self._send_handshake()
 
         # start the write thread
-        write_thread = Thread(target=self.write_thread())
+        write_thread = Thread(target=self.write_thread)
         write_thread.start()
 
         try:
@@ -53,8 +55,6 @@ class WebsocketClient:
                     break
                 else:
                     self.ws_impl.decode(data)
-
-
             # TODO close the socket
             # The write ends
             self.close_ws_connection()

@@ -4,8 +4,6 @@ class WebsocketDraft:
     def __init__(self, role):
         self.role = role
 
-
-
     # handshake
     def translate_handshake(self, data):
         """
@@ -24,15 +22,13 @@ class WebsocketDraft:
         """
         # TODO
         pass
+
     # server-only method
     def post_process_handshake_repsonse_as_server(self, handshake, response):
         # TODO
         pass
 
-
-
     # client-only method
-
-    def post_process_handshake_request_as_client(self, handshake, response):
+    def post_process_handshake_request_as_client(self, handshake):
         # TODO
         pass

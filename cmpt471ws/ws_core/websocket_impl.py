@@ -1,5 +1,6 @@
 
 import queue
+from typing import List
 
 from cmpt471ws.ws_core.base_handshake import BaseHandshake
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
@@ -101,9 +102,6 @@ class WebsocketImpl:
 
             # check the handshake status
             if handshake_state == WebsocketCommon.HANDSHAKE_STATE_MATCHED:
-                # TODO send handshake responses
-                # TODO set resource descriptor
-                # TODO make response
                 self.resource_descriptor = handshake.resource_descriptor
                 response = self.listener.on_handshake_as_server()
                 if response is None:
@@ -131,13 +129,16 @@ class WebsocketImpl:
     # common funcionality
     # TODO how python defines typing
     # TODO how does python supports overloading
-    def write(self, data_list: list[bytearray]):
+    def write(self, data_list: List[bytearray]):
         """
         Write the list of byte array to the underlying tunnel using using the queue,
         must be thread-safe. Talks to the upper layer client or server
         :param data_list:
         :return:
         """
+        if data_list is None or len(data_list) == 0:
+            print("WebsocketImpl#write() : trying to write empty data list or none")
+            return
         for data in data_list:
             self.put_outqueue(data)
             # inform the client or server

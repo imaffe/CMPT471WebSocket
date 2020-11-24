@@ -3,6 +3,7 @@ import socket
 from threading import Thread
 
 from cmpt471ws.ws_core.common import WebsocketCommon
+from cmpt471ws.ws_core.websocket_executor import WebsocketWorker
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
 from cmpt471ws.ws_core.websocket_impl import WebsocketImpl
 
@@ -14,12 +15,12 @@ class WebsocketServer:
     CONCURRENT_DECODER_NUM = 6
 
     def __init__(self,
-                 port: int,
                  host: str,
+                 port: int,
                  ):
         self.ws_impl = WebsocketImpl(self, WebsocketCommon.ROLE_SERVER)
-        self.port = port
         self.host = host
+        self.port = port
         self.executors_nums = WebsocketServer.CONCURRENT_DECODER_NUM
         self.listen_queue_size = WebsocketServer.LISTEN_QUEUE_SIZE
         # This is used for broadcast messages, can be ignored
@@ -30,25 +31,32 @@ class WebsocketServer:
 
     def start(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setblocking(False) # non-blocking TCP socket
+        # non-blocking TCP socket
+        self.socket.setblocking(False)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind((self.host, self.port))
+        print("server listening")
         self.socket.listen(self.listen_queue_size)
         # self.input_sockets = [self.socket]
         # self.output_sockets = []
         # self.message_queues = {}
         # use selector module instead of select directly
+        print("server initializing selectors")
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.socket, selectors.EVENT_READ, WebsocketServer.LISTEN_SOCKET_ID)
         # use to track how many times we assign a new client an executor
         self.queue_invoke_times = 0
         # initialize executors
+        print("server is adding executors")
         self.executors = []
         for i in range(self.executors_nums):
-            self.executors.append(WebsocketServer.WebsocketWorker())
+            self.executors.append(WebsocketWorker())
 
-        self.running_status = "RUNNING" # change to use enum
+        print("server is running")
+        # mTODO change to use enum
+        self.running_status = "RUNNING"
 
-        main_thread = Thread(target=self.server_loop())
+        main_thread = Thread(target=self.server_loop)
         main_thread.start()
 
         # spawn executor threads
@@ -85,15 +93,15 @@ class WebsocketServer:
         conn, addr = key.fileobj.accept()
         conn.setblocking(False)
 
-        assert event_type & selectors.EVENT_WRITE
+        assert event_type & selectors.EVENT_READ
         # create a WebsocketImpl and associate it with the key
-        websocket_impl = WebsocketImpl(self)
+        websocket_impl = WebsocketImpl(self, WebsocketCommon.ROLE_SERVER)
 
         # add the socket corresponding to the new client to the selector
         selection_key = self.selector.register(conn, selectors.EVENT_READ, websocket_impl)
         websocket_impl.set_key(selection_key)
         websocket_impl.set_wrapped_socket(conn)
-
+        print("server accepted a new client connection")
         # TODO we can add some buffer implementation here, increase buffer size for each new client
 
     def do_read(self, key, event_type):
