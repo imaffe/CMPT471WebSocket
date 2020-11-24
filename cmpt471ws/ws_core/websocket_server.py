@@ -2,6 +2,7 @@ import selectors
 import socket
 from threading import Thread
 
+from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
 from cmpt471ws.ws_core.websocket_impl import WebsocketImpl
 
@@ -15,7 +16,7 @@ class WebsocketServer:
                  port: int,
                  host: str,
                  ):
-        self.websocket_impl = WebsocketImpl(self, WebsocketImpl.ROLE_SERVER)
+        self.websocket_impl = WebsocketImpl(self, WebsocketCommon.ROLE_SERVER)
         self.port = port
         self.host = host
         self.executors_nums = WebsocketServer.CONCURRENT_DECODER_NUM
@@ -28,7 +29,7 @@ class WebsocketServer:
     def start(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setblocking(False) # non-blocking TCP socket
-        self.socket.bind(self.host, self.port)
+        self.socket.bind((self.host, self.port))
         self.socket.listen(self.listen_queue_size)
 
         # self.input_sockets = [self.socket]
@@ -154,6 +155,19 @@ class WebsocketServer:
             ws_impl.set_executor(self.executors[self.queue_invoke_times % self.executors_nums])
             self.queue_invoke_times += 1
         ws_impl.executor.put_ws_queue(ws_impl)
+
+
+    ### handshake
+    def on_handshake_as_server(self):
+        """
+        :return: handshake response
+        """
+        # TODO
+        pass
+
+    def on_handshake_as_client(self):
+        print("error on_handshake_as_client called by a server")
+        return None
 
 
     ### The following method are callbacks exposed to WebsocketImpl,

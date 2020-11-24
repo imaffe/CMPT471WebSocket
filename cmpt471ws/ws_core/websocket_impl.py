@@ -1,18 +1,17 @@
 
 import queue
 
+from cmpt471ws.ws_core.client_handshake import ClientHandshake
+from cmpt471ws.ws_core.common import WebsocketCommon
+from cmpt471ws.ws_core.server_handshake import ServerHandshake
+from cmpt471ws.ws_core.websocket_draft import WebsocketDraft
+
+
 class WebsocketImpl:
     # some default values
-    DEFAULT_PORT = 80
 
-    # role enums
-    ROLE_SERVER = "server"
-    ROLE_CLIENT = "client"
-    # connect state enums
-    STATE_NOT_YET_CONNECTED = 100
-    STATE_OPEN = 101
-    STATE_CLOSING = 102
-    STATE_CLOSED = 103
+
+
 
     def __init__(self, listener, role):
         # socket
@@ -29,9 +28,14 @@ class WebsocketImpl:
         # executor assigned
         self.executor = None
 
+        # each draft a decoder
+        self.draft = WebsocketDraft(role)
+
+        self.resource_descriptor = None
+
 
         # The following attributes are necessary for managing websocket protocol states
-        self.ready_state = WebsocketImpl.STATE_NOT_YET_CONNECTED
+        self.ready_state = WebsocketCommon.STATE_NOT_YET_CONNECTED
     def set_key(self, selection_key):
         self.key = selection_key
 
@@ -66,38 +70,98 @@ class WebsocketImpl:
         assert data is not None
         assert len(data) > 0
 
-        if self.ready_state != WebsocketImpl.STATE_NOT_YET_CONNECTED:
-            if self.ready_state == WebsocketImpl.STATE_OPEN:
-                self.decodeFrames(data)
+        if self.ready_state != WebsocketCommon.STATE_NOT_YET_CONNECTED:
+            if self.ready_state == WebsocketCommon.STATE_OPEN:
+                self.decode_frames(data)
         else:
             # we are still decoding handshake
-            handshake_result, remaining = self.decodeHandshake(data)
+            handshake_result, remaining = self.decode_handshake(data)
             # we need to know how many data are left
-            if handshake_result and not self._isClosing() and not self._isClosed():
+            if handshake_result and not self._is_closing() and not self._is_closed():
                 assert remaining is not None
                 # There are some other assertions, as we start to implement more
                 if len(remaining) > 0:
-                    self.decodeFrames(data)
+                    self.decode_frames(data)
 
 
-    def decodeFrames(self, data):
+    def decode_frames(self, data):
         pass
 
 
     # this method should return if the handshake decodeing has completed, and if completed how many bytes
     # we used in current data.
 
-    def decodeHandshake(self, data):
-        pass
+
+    def decode_handshake(self, data):
+        """
+        :param data:
+        :return: result of the decode, true or false
+        """
+
+        if self.role == WebsocketCommon.ROLE_SERVER:
+            handshake = self.draft.translate_handshake(data)
+            if not isinstance(handshake, ClientHandshake):
+                print("error server received non ClientHandshake")
+
+            handshake_state = self.draft.accept_handshake_as_server(handshake)
+
+            # check the handshake status
+            if handshake_state == WebsocketCommon.HANDSHAKE_STATE_MATCHED:
+                # TODO send handshake responses
+                # TODO set resource descriptor
+                # TODO make response
+                self.resource_descriptor = handshake.resource_descriptor
+                response = self.listener.on_handshake_as_server()
+                if response is None:
+                    print("error when server listener build handshake response")
+                    return False
+
+                # we need the tmp response to add AOP features
+                tmp_response = self.draft.post_process_handshake_repsonse_as_server(handshake, response)
+                handshake_response = self.draft.create_handshake(tmp_response)
+                # call open and inform listener
+                self.write(handshake_response)
+                self.open(handshake)
+                return True
+            else:
+                # TODO still not complete, move on
+                pass
+
+
+        elif self.role == WebsocketCommon.ROLE_SERVER:
+            pass
+        else:
+            # TODO should raise exception
+            print("invalid role")
+
+
+    ### common funcionality
+    # TODO how python defines typing
+    # TODO how does python supports overloading
+    def write(self, data_list: list[bytearray]):
+        """
+        Write the list of byte array to the underlying tunnel using using the queue,
+        must be thread-safe.
+        :param data_list:
+        :return:
+        """
+        for data in data_list:
+            self.put_outqueue(data)
+            # inform the client or server
+            self.listener.on_write_demand()
+
+    def open(self, handshake):
+        self.ready_state = WebsocketCommon.STATE_OPEN
+
 
 
     ### The following method is for Closing a websocket session gracefully, include CLOSE frames.
 
-    def _isClosing(self):
-        return self.ready_state == WebsocketImpl.STATE_CLOSING
+    def _is_closing(self):
+        return self.ready_state == WebsocketCommon.STATE_CLOSING
 
-    def _isClosed(self):
-        return self.ready_state == WebsocketImpl.STATE_CLOSED
+    def _is_closed(self):
+        return self.ready_state == WebsocketCommon.STATE_CLOSED
 
 
 
