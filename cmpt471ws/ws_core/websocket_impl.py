@@ -117,10 +117,10 @@ class WebsocketImpl:
                     return False
 
                 # we need the tmp response to add AOP features
-                tmp_response = self.draft.post_process_handshake_repsonse_as_server(handshake, response)
-                handshake_response = self.draft.create_handshake(tmp_response)
+                response_handshake = self.draft.post_process_handshake_repsonse_as_server(handshake, response)
+                handshake_bytearrays = self.draft.create_handshake(response_handshake)
                 # call open and inform listener
-                self.write(handshake_response)
+                self.write(handshake_bytearrays)
                 self.open(handshake)
                 return True
             else:
@@ -141,7 +141,7 @@ class WebsocketImpl:
     def write(self, data_list: list[bytearray]):
         """
         Write the list of byte array to the underlying tunnel using using the queue,
-        must be thread-safe.
+        must be thread-safe. Talks to the upper layer client or server
         :param data_list:
         :return:
         """
@@ -152,7 +152,10 @@ class WebsocketImpl:
 
     def open(self, handshake):
         self.ready_state = WebsocketCommon.STATE_OPEN
-
+        # TODO why pass self to it
+        result = self.listener.on_websocket_open(self, handshake)
+        if not result:
+            print("on_websokcet_open failed")
 
 
     ### The following method is for Closing a websocket session gracefully, include CLOSE frames.

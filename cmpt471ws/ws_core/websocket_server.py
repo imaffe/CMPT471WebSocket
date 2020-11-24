@@ -16,7 +16,7 @@ class WebsocketServer:
                  port: int,
                  host: str,
                  ):
-        self.websocket_impl = WebsocketImpl(self, WebsocketCommon.ROLE_SERVER)
+        self.ws_impl = WebsocketImpl(self, WebsocketCommon.ROLE_SERVER)
         self.port = port
         self.host = host
         self.executors_nums = WebsocketServer.CONCURRENT_DECODER_NUM
@@ -172,28 +172,28 @@ class WebsocketServer:
 
     ### The following method are callbacks exposed to WebsocketImpl,
 
-    def on_websocket_message(self, ws_impl : WebsocketImpl, message):
+    def on_websocket_message(self, ws_impl: WebsocketImpl, message):
         pass
 
-    def on_websocket_open(self, ws_impl : WebsocketImpl, message):
+    def on_websocket_open(self, ws_impl: WebsocketImpl, message):
         pass
 
-    def on_websocket_close(self, ws_impl : WebsocketImpl, message):
+    def on_websocket_close(self, ws_impl: WebsocketImpl, message):
         pass
     ### The following method should be exposed to user applications and should be overwritten
 
     # sync
-    def broadcast(self, data):
+    def broadcast(self, message: str):
         pass
 
     # callbacks that should be overriden
-    def on_message(self, ws_impl: WebsocketImpl, message):
+    def on_message(self, ws_impl: WebsocketImpl, message: str):
         pass
 
-    def on_open(self):
+    def on_open(self, ws_impl: WebsocketImpl):
         pass
 
-    def on_close(self):
+    def on_close(self, ws_impl: WebsocketImpl):
         pass
 
 

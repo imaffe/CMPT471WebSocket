@@ -10,6 +10,7 @@ class WebsocketHelper:
 
     @classmethod
     def batch(cls, websocket_impl: WebsocketImpl):
+        # TODO
         pass
 
     @classmethod
