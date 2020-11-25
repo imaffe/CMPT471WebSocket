@@ -15,3 +15,9 @@ class WebsocketCommon:
 
     # handshake state
     HANDSHAKE_STATE_MATCHED = 200
+
+    # const header fields
+    UPGRADE = "Upgrade"
+    CONNECTION = "Connection"
+    SEC_WEB_SOCKET_KEY = "Sec-WebSocket-Key"
+    SEC_WEB_SOCKET_VERSION = "Sec-WebSocket-Version"

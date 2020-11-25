@@ -47,7 +47,6 @@ class WebsocketClient:
         # start the write thread
         write_thread = Thread(target=self.write_thread)
         write_thread.start()
-
         try:
             while not self.is_closing() and not self.is_closed():
                 data = self.socket.recv(WebsocketCommon.DEFAULT_RCV_BUF_SIZE)

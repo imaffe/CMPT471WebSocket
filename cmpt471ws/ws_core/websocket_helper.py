@@ -1,4 +1,4 @@
-
+import os
 import socket
 
 from cmpt471ws.ws_core.common import WebsocketCommon
@@ -24,4 +24,8 @@ class WebsocketHelper:
             # TODO we should log something here
 
         return data
+
+    @classmethod
+    def random_bytearray(cls, size: int):
+        return  bytearray(os.urandom(size))
 
