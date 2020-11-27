@@ -7,6 +7,7 @@ from cmpt471ws.ws_core.client_handshake import ClientHandshake
 from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.server_handshake import ServerHandshake
 from cmpt471ws.ws_core.websocket_draft import WebsocketDraft
+from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError
 
 
 class WebsocketImpl:
@@ -109,15 +110,20 @@ class WebsocketImpl:
                 response = self.listener.on_handshake_as_server()
                 if response is None:
                     print("error when server listener build handshake response\n")
-                    return False
+                    return False, data
 
                 # we need the tmp response to add AOP features
                 response_handshake = self.draft.post_process_handshake_repsonse_as_server(handshake, response)
+
+                if isinstance(response_handshake, WebsocketDecodeError):
+                    return False, data
+
                 handshake_bytearrays = self.draft.create_handshake(response_handshake)
                 # call open and inform listener
                 self.write(handshake_bytearrays)
                 self.open(handshake)
-                return True
+                # TODO what to return here
+                return True, return_data
             else:
                 # TODO still not complete, move on
                 pass

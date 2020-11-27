@@ -22,3 +22,4 @@ class WebsocketCommon:
     CONNECTION = "Connection"
     SEC_WEB_SOCKET_KEY = "Sec-WebSocket-Key"
     SEC_WEB_SOCKET_VERSION = "Sec-WebSocket-Version"
+    SEC_WEB_SOCKET_ACCEPT = "Sec-WebSocket-Accept"

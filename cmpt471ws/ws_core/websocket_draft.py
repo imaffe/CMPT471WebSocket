@@ -1,4 +1,5 @@
 import base64
+import datetime
 
 from cmpt471ws.ws_core.base_handshake import BaseHandshake
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
@@ -92,8 +93,9 @@ class WebsocketDraft:
         version_str = handshake.get(WebsocketCommon.SEC_WEB_SOCKET_VERSION)
         version = int(version_str)
         if version != 13:
-            return
-
+            return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
+        else:
+            return WebsocketCommon.HANDSHAKE_STATE_MATCHED
         # TODO currently we ignore Extensions, Protocols and other stuffs
 
 
@@ -135,9 +137,26 @@ class WebsocketDraft:
         return [request_all_bytes]
 
     # server-only method
-    def post_process_handshake_repsonse_as_server(self, handshake, response):
-        # TODO
-        pass
+    def post_process_handshake_repsonse_as_server(self, request, response):
+        assert isinstance(request, ClientHandshake)
+        assert isinstance(response, ServerHandshake)
+        response.put(WebsocketCommon.UPGRADE, 'websocket')
+        response.put(WebsocketCommon.CONNECTION, request.get(WebsocketCommon.CONNECTION))
+        sec_key = request.get(WebsocketCommon.SEC_WEB_SOCKET_KEY)
+        # TODO what could the sec_key be here ?
+        if sec_key is None or sec_key == '':
+            return WebsocketDecodeError("Invalid handshake")
+
+        response.put(WebsocketCommon.SEC_WEB_SOCKET_ACCEPT, self._generate_final_key(sec_key))
+
+
+        # TODO ignore protocols and extensions
+
+        response.http_status_message = "Web Socket Protocol Handshake"
+        response.put("Server", "CMPT471 Python-WebSocket")
+        response.put("Date", datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+        return response
+
 
     # client-only method
     def post_process_handshake_request_as_client(self, handshake: ClientHandshake):
