@@ -11,10 +11,6 @@ from cmpt471ws.ws_core.websocket_draft import WebsocketDraft
 
 class WebsocketImpl:
     # some default values
-
-
-
-
     def __init__(self, listener, role):
         # socket
         self.listener = listener
@@ -87,14 +83,21 @@ class WebsocketImpl:
         pass
 
     # this method should return if the handshake decodeing has completed, and if completed how many bytes
+
+    # TODO it seems like using exception might be the best way to do IncompleteException
     def decode_handshake(self, data):
         """
         :param data:
         :return: result of the decode, true or false
         """
-
+        return_data = data
         if self.role == WebsocketCommon.ROLE_SERVER:
-            handshake = self.draft.translate_handshake(data)
+            handshake, return_data = self.draft.translate_handshake(return_data)
+
+            if handshake is None:
+                # incomplete packet, need to do something
+                return None, data
+
             if not isinstance(handshake, ClientHandshake):
                 print("error server received non ClientHandshake\n")
 

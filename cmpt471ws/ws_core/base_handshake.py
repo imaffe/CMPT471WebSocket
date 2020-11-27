@@ -7,3 +7,6 @@ class BaseHandshake():
 
     def put(self, key: str, value: str):
         self.kvmap[key] = value
+
+    def get(self, key):
+        return self.kvmap[key]

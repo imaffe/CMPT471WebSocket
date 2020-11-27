@@ -15,7 +15,8 @@ class WebsocketCommon:
 
     # handshake state
     HANDSHAKE_STATE_MATCHED = 200
-
+    HANDSHAKE_STATE_NOT_MATCHED = 201
+    HANDSHAKE_STATE_EXTENSION_NOT_KNOWN = 202
     # const header fields
     UPGRADE = "Upgrade"
     CONNECTION = "Connection"
