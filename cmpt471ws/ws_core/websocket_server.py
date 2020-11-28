@@ -141,6 +141,12 @@ class WebsocketServer:
     def broadcast(self, message: str):
         pass
 
+
+    # TODO currently we don't support server send to a target, but in on_message() we
+    # TODO can do pretty much the same thing
+    # def send(self, target, message: str):
+    #     pass
+
     # callbacks that should be overriden
     def on_message(self, ws_impl: WebsocketImpl, message: str):
         pass

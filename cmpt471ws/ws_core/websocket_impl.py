@@ -232,6 +232,23 @@ class WebsocketImpl:
         handshake_bytearrays = self.draft.create_handshake(handshake_req)
         self.write(handshake_bytearrays)
 
+    # data plane sends
+
+    def send(self, message):
+        """
+        This one calls send(frames) to send out data
+        :param message:
+        :return:
+        """
+        # TODO
+        pass
+
+    def send(self, frames):
+        # TODO
+        pass
+
+
+
 
 
 

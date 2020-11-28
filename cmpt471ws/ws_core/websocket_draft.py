@@ -332,6 +332,17 @@ class WebsocketDraft:
         request_all_bytes = request_header_bytes + request_content_bytes
         return [request_all_bytes]
 
+
+    def create_frames(self, message):
+        """
+        Currently only supports string type message
+        :param message:
+        :return:
+        """
+        pass
+
+    def create_binary_frame(self, message):
+
     # server-only method
     def post_process_handshake_repsonse_as_server(self, request, response):
         assert isinstance(request, ClientHandshake)

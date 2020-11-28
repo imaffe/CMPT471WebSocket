@@ -78,14 +78,14 @@ class WebsocketClient:
         """
         pass
 
-    # TODO this dispatcher might be too slow
-    def send(self, data: bytearray):
-        """
-        sends out a byte array
-        :param data:
-        :return:
-        """
-        pass
+    # # TODO this dispatcher might be too slow
+    # def send(self, data: bytearray):
+    #     """
+    #     sends out a byte array
+    #     :param data:
+    #     :return:
+    #     """
+    #     pass
 
 
     def run(self):
