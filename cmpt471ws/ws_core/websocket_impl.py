@@ -35,6 +35,8 @@ class WebsocketImpl:
         # The following attributes are necessary for managing websocket protocol states
         self.ready_state = WebsocketCommon.STATE_NOT_YET_CONNECTED
 
+        self.client_handshake = None
+
     def set_key(self, selection_key):
         self.key = selection_key
 
@@ -72,6 +74,11 @@ class WebsocketImpl:
         else:
             # we are still decoding handshake
             handshake_result, remaining = self.decode_handshake(data)
+
+            # if handshake_result is None, means we need more packet
+            if handshake_result is None:
+                # TODO the exact format is not decided
+                self._wait_for_next_packet()
             # we need to know how many data are left
             if handshake_result and not self.is_closing() and not self.is_closed():
                 assert remaining is not None
@@ -126,13 +133,37 @@ class WebsocketImpl:
                 return True, return_data
             else:
                 # TODO still not complete, move on
-                pass
+                print("Error handshake not in Match state, close connection")
+                return False, data
 
-        elif self.role == WebsocketCommon.ROLE_SERVER:
-            pass
+        elif self.role == WebsocketCommon.ROLE_CLIENT:
+            handshake, return_data = self.draft.translate_handshake(return_data)
+
+            if handshake is None:
+                # incomplete packet, need to do something
+                return None, data
+
+            if not isinstance(handshake, ServerHandshake):
+                print("error client received non ServerHandhshake")
+            handshake_state = self.draft.accept_handshake_as_client(self.client_handshake, handshake)
+            # check the handshake status
+            if handshake_state == WebsocketCommon.HANDSHAKE_STATE_MATCHED:
+                response = self.listener.on_handshake_as_client()
+                if response is None:
+                    print("error when server listener build handshake response\n")
+                    return False, data
+
+                self.open(handshake)
+                # TODO what to return here
+                return True, return_data
+            else:
+                # TODO still not complete, move on
+                print("Error handshake not in Match state, close connection")
+                return False, data
         else:
             # TODO should raise exception
             print("invalid role\n")
+            return False, data
 
 
     # common funcionality
@@ -172,12 +203,13 @@ class WebsocketImpl:
     def start_handshake(self, handshake: ClientHandshake):
         # TO
         handshake_req = self.draft.post_process_handshake_request_as_client(handshake)
-
+        self.client_handshake = handshake_req
         # TODO should notify the listener that the handshake has been sent, ignore this for now
 
         # send the handshake to
         handshake_bytearrays = self.draft.create_handshake(handshake_req)
         self.write(handshake_bytearrays)
+
 
 
 

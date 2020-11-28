@@ -141,7 +141,8 @@ class WebsocketClient:
         return None
 
     def on_handshake_as_client(self):
-        pass
+        print("Client received handshake")
+        return True
 
     def on_write_demand(self, ws_impl: WebsocketImpl):
         """

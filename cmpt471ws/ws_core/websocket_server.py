@@ -171,7 +171,8 @@ class WebsocketServer:
         :return: handshake response
         """
         # TODO
-        pass
+        print("Server received handshake")
+        return True
 
     def on_handshake_as_client(self):
         print("error on_handshake_as_client called by a server\n")

@@ -67,10 +67,18 @@ class WebsocketDraft:
 
         return handshake, return_data
 
+    def _translate_handshake_client(self, first_line_token, head_line):
+        if '101' != first_line_token[1]:
+            print("Error header line second token is not 101")
+            return None
 
-    def _translate_handshake_client(self, first_line_tokens, head_line):
-        pass
+        if 'HTTP/1.1' != first_line_token[0]:
+            print("Error header line first token is not HTTP")
+            return None
 
+        http_status = 101
+        http_status_message = first_line_token[2]
+        return ServerHandshake(http_status, http_status_message)
 
     # TODO can either return None or return a exception
     def _translate_handshake_server(self, first_line_token, head_line):
@@ -99,9 +107,29 @@ class WebsocketDraft:
         # TODO currently we ignore Extensions, Protocols and other stuffs
 
 
-    def accept_handshake_as_client(self, handshake):
-        pass
+    def accept_handshake_as_client(self, request, response):
 
+        assert isinstance(response, ServerHandshake)
+        if response.get(WebsocketCommon.UPGRADE) != 'websocket' or str(response.get(WebsocketCommon.CONNECTION)).find('upgrade') == -1:
+            return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
+
+        # TODO why do we need to verify if client handshake ?
+        if response.get(WebsocketCommon.SEC_WEB_SOCKET_ACCEPT) is None:
+            return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
+
+        if request.get(WebsocketCommon.SEC_WEB_SOCKET_KEY) is None:
+            return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
+
+        sec_key = request.get(WebsocketCommon.SEC_WEB_SOCKET_KEY)
+        sec_answer = response.get(WebsocketCommon.SEC_WEB_SOCKET_ACCEPT)
+        our_answer = self._generate_final_key(sec_key)
+
+        if our_answer != sec_answer:
+            print("Error client key not match")
+            return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
+
+        # TODO ignore extensions and protocols
+        return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
 
 
     def create_handshake(self, handshake):
@@ -146,7 +174,7 @@ class WebsocketDraft:
         # TODO what could the sec_key be here ?
         if sec_key is None or sec_key == '':
             return WebsocketDecodeError("Invalid handshake")
-
+        assert isinstance(sec_key, str)
         response.put(WebsocketCommon.SEC_WEB_SOCKET_ACCEPT, self._generate_final_key(sec_key))
 
 
@@ -171,3 +199,8 @@ class WebsocketDraft:
         # TODO skip extensions for now
         # TODO skip protocols for now
         return handshake
+
+
+
+    def _generate_final_key(self, sec_key):
+        assert isinstance(sec_key, str)
