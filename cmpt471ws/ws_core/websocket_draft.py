@@ -4,8 +4,9 @@ import datetime
 from cmpt471ws.ws_core.base_handshake import BaseHandshake
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
 from cmpt471ws.ws_core.common import WebsocketCommon
+from cmpt471ws.ws_core.frames.websocket_base_frame import Frame
 from cmpt471ws.ws_core.server_handshake import ServerHandshake
-from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError
+from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError, WebsocketInvalidFrameError
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
 
 
@@ -94,8 +95,6 @@ class WebsocketDraft:
         resource_descriptor = first_line_token[1]
         return ClientHandshake(resource_descriptor)
 
-
-
     def translate_frames(self, data):
         assert isinstance(data, bytearray)
         assert len(data) > 0
@@ -118,7 +117,6 @@ class WebsocketDraft:
 
             return frames
 
-
     def _translate_single_frame(self, data):
         return_data = data.copy()
         assert isinstance(return_data, bytearray)
@@ -140,19 +138,92 @@ class WebsocketDraft:
         payloadlength = b2 & ~128
         opcode = self._to_opcode(b1 & 15)
 
-
         if payloadlength < 0 or payloadlength > 125:
-            payloadlength, real_packet_size = self._translate_single_frame_for_real_length()
+            # TODO the first two bits should not be passed in
+            return_data = return_data[2:]
+            payloadlength, real_packet_size, return_data = self._translate_single_frame_for_real_length(
+                return_data,
+                opcode,
+                payloadlength,
+                data_len,
+                real_packet_size
+            )
 
-        real_packet_size += 4 if mask else 0
-        real_packet_size += payloadlength
-
+        # TODO seems using exception is the best way to do it
+        if isinstance(payloadlength, WebsocketInvalidFrameError):
+            return payloadlength, data
         if data_len < real_packet_size:
             # Imcomplete data
             return None, data
 
+        real_packet_size += 4 if mask else 0
+        real_packet_size += payloadlength
+
+        payload = bytearray
+        if data_len < real_packet_size:
+            # Imcomplete data
+            return None, data
+
+        if mask:
+            # TODO give this to Sam or Ruikai
+            pass
+        else:
+            payload = return_data[:payloadlength]
+            return_data = return_data[payloadlength:]
+
+        frame = Frame.frame_factory_get(opcode)
+        frame.fin = fin
+        frame.rsv1 = rsv1
+        frame.rsv2 = rsv2
+        frame.rsv3 = rsv3
+        # TODO skip extension and protocol validation
+        frame.payload = payload
+
+        # TODO which will it use ?
+        isvalid = frame.isvalid()
+
+        if isvalid:
+            return frame, return_data
+        else:
+            return WebsocketInvalidFrameError("Invalid frame"), data
 
         # self._check_payload_limit(payloadlength)
+
+
+    def _translate_single_frame_for_real_length(self,
+                data,
+                opcode,
+                oldpayloadlength,
+                data_len,
+                old_real_packet_size
+            ):
+        """
+        returns the real payload length and real packet size plus the modified data
+        """
+        return_data = data.copy()
+        payloadlength = oldpayloadlength
+        real_packet_size = old_real_packet_size
+        if opcode == WebsocketCommon.PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
+            return WebsocketInvalidFrameError("Some frames cannot have longer payload length"), None, data
+
+        if payloadlength == 126:
+            real_packet_size += 2
+            size_bytearray = bytearray()
+            size_bytearray.append(0)
+            size_bytearray.append(return_data[0])
+            size_bytearray.append(return_data[1])
+            return_data = return_data[2:]
+            payloadlength = int.from_bytes(size_bytearray, byteorder='big', signed=False)
+        else:
+            real_packet_size += 8
+            size_bytearray = bytearray()
+            for i in range(8):
+                size_bytearray.append(return_data[i])
+            return_data = return_data[8:]
+            payloadlength = int.from_bytes(size_bytearray, byteorder='big', signed=False)
+
+        return payloadlength, real_packet_size, return_data
+
     def _to_opcode(self, n):
         if n == 0:
             return WebsocketCommon.OP_CODE_CONTINUOUS
@@ -170,14 +241,29 @@ class WebsocketDraft:
             print("Error opcode invalid")
             return -1
 
-
-
-
-
     def process_frame(self, ws_impl, frame):
-        pass
-
-
+        if frame.op == WebsocketCommon.OP_CODE_CLOSING:
+            # TODO Sam or Ruikai
+            pass
+        elif frame.op == WebsocketCommon.OP_CODE_PONG:
+            pass
+        elif frame.op == WebsocketCommon.OP_CODE_PING:
+            pass
+        elif frame.op == WebsocketCommon.OP_CODE_CONTINUOUS:
+            pass
+        elif frame.op == WebsocketCommon.OP_CODE_TEXT:
+            # TODO can add some error protection code
+            assert isinstance(frame.payload, bytearray)
+            # TODO notice we use UTF-8 encoding here
+            message = frame.payload.decode('utf-8')
+            ws_impl.listener.on_websocket_message(message)
+        elif frame.op == WebsocketCommon.OP_CODE_BINARY:
+            # TODO currently we don't support binary interfaces exposed, so all binary is passed as
+            assert isinstance(frame.payload, bytearray)
+            base64_message = base64.b64encode(frame.payload).decode('ascii')
+            ws_impl.listener.on_websocket_message(base64_message)
+        else:
+            print("Error, invalid opcode while processing the frames")
 
     def accept_handshake_as_server(self, handshake):
         assert isinstance(handshake, ClientHandshake)
@@ -190,11 +276,11 @@ class WebsocketDraft:
             return WebsocketCommon.HANDSHAKE_STATE_MATCHED
         # TODO currently we ignore Extensions, Protocols and other stuffs
 
-
     def accept_handshake_as_client(self, request, response):
 
         assert isinstance(response, ServerHandshake)
-        if response.get(WebsocketCommon.UPGRADE) != 'websocket' or str(response.get(WebsocketCommon.CONNECTION)).find('upgrade') == -1:
+        if response.get(WebsocketCommon.UPGRADE) != 'websocket' or str(response.get(WebsocketCommon.CONNECTION)).find(
+                'upgrade') == -1:
             return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
 
         # TODO why do we need to verify if client handshake ?
@@ -215,7 +301,6 @@ class WebsocketDraft:
         # TODO ignore extensions and protocols
         return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
 
-
     def create_handshake(self, handshake):
         """
         receive a Handshake object, could be ServerHandshake or ClientHandshak, and return a list of bytearray
@@ -229,7 +314,6 @@ class WebsocketDraft:
             request_str = "HTTP/1.1 101 " + handshake.http_status_message
         else:
             print("Error invalid handshake type")
-
 
         request_str += "\r\n"
 
@@ -261,14 +345,12 @@ class WebsocketDraft:
         assert isinstance(sec_key, str)
         response.put(WebsocketCommon.SEC_WEB_SOCKET_ACCEPT, self._generate_final_key(sec_key))
 
-
         # TODO ignore protocols and extensions
 
         response.http_status_message = "Web Socket Protocol Handshake"
         response.put("Server", "CMPT471 Python-WebSocket")
         response.put("Date", datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
         return response
-
 
     # client-only method
     def post_process_handshake_request_as_client(self, handshake: ClientHandshake):
@@ -283,8 +365,6 @@ class WebsocketDraft:
         # TODO skip extensions for now
         # TODO skip protocols for now
         return handshake
-
-
 
     def _generate_final_key(self, sec_key):
         assert isinstance(sec_key, str)
