@@ -23,3 +23,11 @@ class WebsocketCommon:
     SEC_WEB_SOCKET_KEY = "Sec-WebSocket-Key"
     SEC_WEB_SOCKET_VERSION = "Sec-WebSocket-Version"
     SEC_WEB_SOCKET_ACCEPT = "Sec-WebSocket-Accept"
+
+    # OP_CDOE
+    OP_CODE_CONTINUOUS = 0
+    OP_CODE_TEXT = 1
+    OP_CODE_BINARY = 2
+    OP_CODE_CLOSING = 8
+    OP_CODE_PING = 9
+    OP_CODE_PONG = 10

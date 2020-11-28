@@ -37,6 +37,8 @@ class WebsocketImpl:
 
         self.client_handshake = None
 
+        self.tmp_handshake_data = bytearray()
+
     def set_key(self, selection_key):
         self.key = selection_key
 
@@ -66,29 +68,49 @@ class WebsocketImpl:
     """
     def decode(self, data):
         assert data is not None
+        # TODO if less than 0 it should not be passed here
         assert len(data) > 0
-
+        # TODO we assume that handshake and send data is two isolated phase, if the previous
+        # TODO is not complete then no data packets will be received
         if self.ready_state != WebsocketCommon.STATE_NOT_YET_CONNECTED:
             if self.ready_state == WebsocketCommon.STATE_OPEN:
                 self.decode_frames(data)
         else:
             # we are still decoding handshake
-            handshake_result, remaining = self.decode_handshake(data)
+            self.tmp_handshake_data.extend(data)
+            handshake_result, remaining = self.decode_handshake(self.tmp_handshake_data)
 
             # if handshake_result is None, means we need more packet
             if handshake_result is None:
-                # TODO the exact format is not decided
-                self._wait_for_next_packet()
+                # TODO remaining is not changed if something wrong happens
+                self.tmp_handshake_data = remaining
+                return
+
             # we need to know how many data are left
             if handshake_result and not self.is_closing() and not self.is_closed():
                 assert remaining is not None
                 # There are some other assertions, as we start to implement more
                 if len(remaining) > 0:
+                    # clera the handshake buffer
+                    self.tmp_handshake_data = bytearray()
                     self.decode_frames(data)
+            else:
+                # TODO something wrong happens, reset to previous buffers, need to inform upper layer
+                print("Error decoding, exit server")
+                self.tmp_handshake_data = remaining
+                return
 
 
     def decode_frames(self, data):
-        pass
+        frames = self.draft.translate_frames(data)
+        assert frames is not None
+
+        for f in frames:
+            result = self.draft.process_frame(self, f)
+            # TODO what to do when exceptions happens ?
+            if not result:
+                print("Error while decoding frames")
+                return
 
     # this method should return if the handshake decodeing has completed, and if completed how many bytes
 

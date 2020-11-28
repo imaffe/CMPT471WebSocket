@@ -13,6 +13,7 @@ class WebsocketDraft:
 
     def __init__(self, role):
         self.role = role
+        self.imcomplete_frame = bytearray()
 
     # handshake
     # TODO consider using exceptions to inform upper call stack
@@ -92,6 +93,89 @@ class WebsocketDraft:
 
         resource_descriptor = first_line_token[1]
         return ClientHandshake(resource_descriptor)
+
+
+
+    def translate_frames(self, data):
+        assert isinstance(data, bytearray)
+        assert len(data) > 0
+
+        frames = []
+        while True:
+            if len(self.imcomplete_frame) > 0:
+                # finish what is left
+                self.imcomplete_frame.extend(data)
+                data = self.imcomplete_frame
+
+            while len(data) > 0:
+                frame, data = self._translate_single_frame(data)
+                if frame is None:
+                    # means incomplete frame
+                    self.imcomplete_frame = data
+                    return frames
+                else:
+                    frames.append(frame)
+
+            return frames
+
+
+    def _translate_single_frame(self, data):
+        return_data = data.copy()
+        assert isinstance(return_data, bytearray)
+        data_len = len(data)
+        real_packet_size = 2
+        if data_len < real_packet_size:
+            # Imcomplete data
+            return None, data
+        # TODO we don't put any size constraints on frames
+        b1 = return_data[0]
+        fin = b1 >> 8 != 0
+        rsv1 = (b1 & 0x40) != 0
+        rsv2 = (b1 & 0x20) != 0
+        rsv3 = (b1 & 0x10) != 0
+
+        b2 = return_data[1]
+        mask = (b2 & -128) != 0
+        # TODO will this actually work ?
+        payloadlength = b2 & ~128
+        opcode = self._to_opcode(b1 & 15)
+
+
+        if payloadlength < 0 or payloadlength > 125:
+            payloadlength, real_packet_size = self._translate_single_frame_for_real_length()
+
+        real_packet_size += 4 if mask else 0
+        real_packet_size += payloadlength
+
+        if data_len < real_packet_size:
+            # Imcomplete data
+            return None, data
+
+
+        # self._check_payload_limit(payloadlength)
+    def _to_opcode(self, n):
+        if n == 0:
+            return WebsocketCommon.OP_CODE_CONTINUOUS
+        elif n == 1:
+            return WebsocketCommon.OP_CODE_TEXT
+        elif n == 2:
+            return WebsocketCommon.OP_CODE_BINARY
+        elif n == 8:
+            return WebsocketCommon.OP_CODE_CLOSING
+        elif n == 9:
+            return WebsocketCommon.OP_CODE_PING
+        elif n == 10:
+            return WebsocketCommon.OP_CODE_PONG
+        else:
+            print("Error opcode invalid")
+            return -1
+
+
+
+
+
+    def process_frame(self, ws_impl, frame):
+        pass
 
 
 
