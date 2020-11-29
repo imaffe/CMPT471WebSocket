@@ -21,7 +21,7 @@ class WebsocketWorker:
             buf = ws_impl.get_inqueue()
             assert buf is not None
             # let the ws_impl to decode this data
-            ws_impl.decode(buf)
+            ws_impl.decode(bytearray(buf))
 
     def put_ws_queue(self, ws_impl: WebsocketImpl):
         self.ws_impl_queue.put(ws_impl)

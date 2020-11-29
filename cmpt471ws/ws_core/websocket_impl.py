@@ -86,7 +86,7 @@ class WebsocketImpl:
             # we are still decoding handshake
             self.tmp_handshake_data.extend(data)
             handshake_result, remaining = self.decode_handshake(self.tmp_handshake_data)
-
+            print("WS_IMPL: handshake success, moving trying to finish whole decode")
             # if handshake_result is None, means we need more packet
             if handshake_result is None:
                 # TODO remaining is not changed if something wrong happens
@@ -98,6 +98,7 @@ class WebsocketImpl:
                 assert remaining is not None
                 # There are some other assertions, as we start to implement more
                 if len(remaining) > 0:
+                    print("WS_IMPL: continueing decode frames after handshake complete")
                     # clera the handshake buffer
                     self.tmp_handshake_data = bytearray()
                     self.decode_frames(data)
@@ -105,18 +106,19 @@ class WebsocketImpl:
                 # TODO something wrong happens, reset to previous buffers, need to inform upper layer
                 print("Error decoding, exit server")
                 self.tmp_handshake_data = remaining
-                return
 
 
     def decode_frames(self, data):
+        print("WS_IMPL: decode_frames get called")
         frames = self.draft.translate_frames(data)
         assert frames is not None
 
         for f in frames:
             result = self.draft.process_frame(self, f)
             # TODO what to do when exceptions happens ?
+            print("WS_IMPL:  processes one frame")
             if not result:
-                print("Error while decoding frames")
+                print("Error while process frames")
                 return
 
     # this method should return if the handshake decodeing has completed, and if completed how many bytes

@@ -115,7 +115,10 @@ class WebsocketServer:
         print("WS_SERVER: received packet from client, string format {}".format(data.decode('ascii')))
         assert data is not None
         size = len(data)
-        assert size > 0
+        # assert size > 0
+        if size == 0:
+            print("WS_SERVER: received empty packets from socket")
+            return
         ws_impl.put_inqueue(data)
         self.assign_executor(ws_impl)
         # TODO potentially we will use a global thread pool, instead of using per ws_impl thread

@@ -15,7 +15,7 @@ class ChatClient(WebsocketClient):
         WebsocketClient.__init__(self, host, port)
 
     def on_message(self, ws_impl, message: str):
-        pass
+        print("Client: received message from server:{}".format(message))
 
     def on_open(self, ws_impl, handshake):
         print("Client: Websocket Connect Success")

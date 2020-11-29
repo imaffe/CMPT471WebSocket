@@ -5,7 +5,7 @@ from cmpt471ws.ws_core.base_handshake import BaseHandshake
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
 from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.frames.websocket_base_frame import Frame
-from cmpt471ws.ws_core.frames.websocket_text_frame import TextFrame
+from cmpt471ws.ws_core.frames.websocket_base_frame import TextFrame
 from cmpt471ws.ws_core.server_handshake import ServerHandshake
 from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError, WebsocketInvalidFrameError
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
@@ -131,20 +131,26 @@ class WebsocketDraft:
             return None, data
         # TODO we don't put any size constraints on frames
         b1 = return_data[0]
+        print("WS_DRAFT: first byte is {0:b} {1}".format(b1, b1))
         fin = b1 >> 8 != 0
         rsv1 = (b1 & 0x40) != 0
         rsv2 = (b1 & 0x20) != 0
         rsv3 = (b1 & 0x10) != 0
 
         b2 = return_data[1]
+        print("WS_DRAFT: second byte is {0:b} {1}".format(b2, b2))
         mask = (b2 & -128) != 0
         # TODO will this actually work ?
         payloadlength = b2 & ~128
+        # payloadlength = b2 & 127
         opcode = self._to_opcode(b1 & 15)
+        print("WS_DRAFT: payload length is {0:b} {1}".format(payloadlength, payloadlength))
+        print("WS_DRAFT: opcode is {0:b} {1}".format(b1 & 15, b1 & 15))
 
+        return_data = return_data[2:]
         if payloadlength < 0 or payloadlength > 125:
             # TODO the first two bits should not be passed in
-            return_data = return_data[2:]
+            print("after truncate the first 2 bytes : {}".format(WebsocketHelper.bytearray_to_ascii_string(return_data)))
             payloadlength, real_packet_size, return_data = self._translate_single_frame_for_real_length(
                 return_data,
                 opcode,
@@ -187,6 +193,7 @@ class WebsocketDraft:
         is_valid = frame.is_valid()
 
         if is_valid:
+            print("after decode the bytes left are {}".format(len(return_data)))
             return frame, return_data
         else:
             return WebsocketInvalidFrameError("Invalid frame"), data
@@ -260,14 +267,17 @@ class WebsocketDraft:
             assert isinstance(frame.payload, bytearray)
             # TODO notice we use UTF-8 encoding here
             message = frame.payload.decode('utf-8')
-            ws_impl.listener.on_websocket_message(message)
+            ws_impl.listener.on_websocket_message(ws_impl, message)
         elif frame.op == WebsocketCommon.OP_CODE_BINARY:
             # TODO currently we don't support binary interfaces exposed, so all binary is passed as
             assert isinstance(frame.payload, bytearray)
             base64_message = base64.b64encode(frame.payload).decode('ascii')
-            ws_impl.listener.on_websocket_message(base64_message)
+            ws_impl.listener.on_websocket_message(ws_impl, base64_message)
         else:
             print("Error, invalid opcode while processing the frames")
+            return False
+
+        return True
 
     def accept_handshake_as_server(self, handshake):
         assert isinstance(handshake, ClientHandshake)

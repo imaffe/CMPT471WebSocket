@@ -1,4 +1,5 @@
 import socket
+import threading
 from threading import Thread
 
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
@@ -19,7 +20,9 @@ class WebsocketClient:
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-
+        self.write_thread = None
+        self.read_thread = None
+        self.handshake_ready = threading.Event()
 
     def connect(self):
         """
@@ -45,30 +48,19 @@ class WebsocketClient:
         self._send_handshake()
         print("send handshake success, starting write thread")
         # start the write thread
-        write_thread = Thread(target=self.write_thread)
-        write_thread.start()
-        try:
-            while not self.is_closing() and not self.is_closed():
-                data = self.socket.recv(WebsocketCommon.DEFAULT_RCV_BUF_SIZE)
-                print("WS_CLIENT: received data from server {}".format(len(data)))
-                if len(data) == 0:
-                    break
-                else:
-                    self.ws_impl.decode(data)
-            # TODO close the socket
-            # The write ends
-            self.close_ws_connection()
-        except:
-            print("Error while reading from the socket\n")
-            self.socket.close()
+        self.write_thread = Thread(target=self.write_thread_run)
+        self.write_thread.start()
 
+        self.read_thread = Thread(target=self.read_thread_run_without_try_except)
+        self.read_thread.start()
 
-
+        self.handshake_ready.wait()
         # TODO close the socket gracefully
-        write_thread.join()
+
 
     def close(self):
-        pass
+        self.read_thread.join()
+        self.write_thread.join()
 
 
     def send(self, message: str):
@@ -77,6 +69,7 @@ class WebsocketClient:
         :param data:
         :return:
         """
+        print("WS_CLIENT: send gets called")
         assert isinstance(message, str)
         self.ws_impl.send(message)
 
@@ -90,12 +83,44 @@ class WebsocketClient:
     #     pass
 
 
-    # def run(self):
+    # def read_thread_run(self):
     #     """
     #     start the client, begin read loop
     #     :return:
     #     """
-    #     pass
+    #     try:
+    #         while not self.is_closing() and not self.is_closed():
+    #             data = self.socket.recv(WebsocketCommon.DEFAULT_RCV_BUF_SIZE)
+    #             print("WS_CLIENT: received data from server {}".format(len(data)))
+    #             if len(data) == 0:
+    #                 break
+    #             else:
+    #                 self.ws_impl.decode(data)
+    #         # TODO close the socket
+    #         # The write ends
+    #         print("Closing the connection")
+    #         self.close_ws_connection()
+    #     except Exception as e:
+    #         print(e)
+    #         print("Error while reading from the socket")
+    #         self.socket.close()
+
+    def read_thread_run_without_try_except(self):
+        """
+        start the client, begin read loop
+        :return:
+        """
+        while not self.is_closing() and not self.is_closed():
+            data = self.socket.recv(WebsocketCommon.DEFAULT_RCV_BUF_SIZE)
+            print("WS_CLIENT: received data from server {}".format(len(data)))
+            if len(data) == 0:
+                break
+            else:
+                self.ws_impl.decode(bytearray(data))
+        # TODO close the socket
+        # The write ends
+        print("Closing the connection")
+        self.close_ws_connection()
 
 
     def _send_handshake(self):
@@ -130,6 +155,8 @@ class WebsocketClient:
     # needs to be implemented as listener
     def on_websocket_open(self, ws_impl: WebsocketImpl,  handshake):
         assert isinstance(handshake, ServerHandshake)
+        # TODO release some lock
+        self.handshake_ready.set()
         self.on_open(ws_impl, handshake)
 
     def on_websocket_message(self, ws_impl: WebsocketImpl, message: str):
@@ -173,7 +200,7 @@ class WebsocketClient:
 
 
 
-    def write_thread(self):
+    def write_thread_run(self):
         try:
             print("WS_CLIENT: write thread started")
             while not self.is_closed() and not self.is_closing():
