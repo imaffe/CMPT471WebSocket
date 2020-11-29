@@ -76,7 +76,31 @@ class WebsocketHelper:
         return bytearray(s.encode('ascii'))
 
     @classmethod
+    def str_to_utf8_bytearray(cls, s):
+        assert s is not None
+        assert isinstance(s, str)
+        return bytearray(s.encode('utf-8'))
+
+    @classmethod
     def ascii_bytearray(cls, data):
         assert data is not None
         assert isinstance(data, bytearray)
         return data.decode('ascii')
+
+
+    # All bytes int conversion should be using these methods
+
+    @classmethod
+    def int8_to_bytes(cls, n):
+        assert isinstance(n, int) and n >= -128 and n <= 127
+        return n.to_bytes(1, byteorder='big', signed=True)
+
+    @classmethod
+    def bytes_to_int(cls, data):
+        assert isinstance(data, bytearray)
+        return int.from_bytes(data, byteorder='big', signed=True)
+
+    @classmethod
+    def int_to_bytes_for_size(cls, n, size):
+        assert isinstance(n, int)
+        return n.to_bytes(size, byteorder='big', signed=True)

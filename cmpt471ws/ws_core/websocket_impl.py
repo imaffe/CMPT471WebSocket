@@ -221,6 +221,9 @@ class WebsocketImpl:
     def is_closed(self):
         return self.ready_state == WebsocketCommon.STATE_CLOSED
 
+    def is_open(self):
+        return self.ready_state == WebsocketCommon.STATE_OPEN
+
     # For clients only
     def start_handshake(self, handshake: ClientHandshake):
         # TO
@@ -241,12 +244,21 @@ class WebsocketImpl:
         :return:
         """
         # TODO
-        pass
+        frames = self.draft.create_text_frames(message)
+        self.send_frames(frames)
 
-    def send(self, frames):
-        # TODO
-        pass
+    def send_frames(self, frames):
+        # is the socket open ?
+        if not self.is_open():
+            print("connection has closed, not sending anything")
+            return
 
+        assert frames is not None
+        data_list = []
+        for frame in frames:
+            data_list.append(self.draft.create_bytearray_for_frame(frame))
+
+        self.write(data_list)
 
 
 

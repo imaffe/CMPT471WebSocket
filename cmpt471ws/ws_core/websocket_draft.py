@@ -5,6 +5,7 @@ from cmpt471ws.ws_core.base_handshake import BaseHandshake
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
 from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.frames.websocket_base_frame import Frame
+from cmpt471ws.ws_core.frames.websocket_text_frame import TextFrame
 from cmpt471ws.ws_core.server_handshake import ServerHandshake
 from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError, WebsocketInvalidFrameError
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
@@ -180,9 +181,9 @@ class WebsocketDraft:
         frame.payload = payload
 
         # TODO which will it use ?
-        isvalid = frame.isvalid()
+        is_valid = frame.is_valid()
 
-        if isvalid:
+        if is_valid:
             return frame, return_data
         else:
             return WebsocketInvalidFrameError("Invalid frame"), data
@@ -213,14 +214,14 @@ class WebsocketDraft:
             size_bytearray.append(return_data[0])
             size_bytearray.append(return_data[1])
             return_data = return_data[2:]
-            payloadlength = int.from_bytes(size_bytearray, byteorder='big', signed=False)
+            payloadlength = WebsocketHelper.bytes_to_int(size_bytearray)
         else:
             real_packet_size += 8
             size_bytearray = bytearray()
             for i in range(8):
                 size_bytearray.append(return_data[i])
             return_data = return_data[8:]
-            payloadlength = int.from_bytes(size_bytearray, byteorder='big', signed=False)
+            payloadlength = WebsocketHelper.bytes_to_int(size_bytearray)
 
         return payloadlength, real_packet_size, return_data
 
@@ -333,15 +334,103 @@ class WebsocketDraft:
         return [request_all_bytes]
 
 
-    def create_frames(self, message):
+    def create_text_frames(self, message):
         """
         Currently only supports string type message
         :param message:
         :return:
         """
-        pass
+        assert isinstance(message, str)
 
-    def create_binary_frame(self, message):
+        text_frame = TextFrame()
+        text_frame.payload = WebsocketHelper.str_to_utf8_bytearray()
+        return [text_frame]
+
+    def create_binary_frames(self, data):
+        assert isinstance(data, bytearray)
+        # TODO don't support binary frames for now
+
+
+    def create_bytearray_for_frame(self, frame):
+        assert isinstance(frame, Frame)
+
+        payload = frame.payload
+        result = bytearray()
+        # TODO wait mask is a must support for Client
+        # TODO give mask support to Sam or Ruikai
+        # mask = self.role == WebsocketCommon.ROLE_CLIENT
+        mask = False
+        size_bytes = self._get_size_bytes(payload)
+        opt_code = frame.op
+        one_int8 = -128 if frame.fin else 0
+
+        one = opt_code | one_int8
+
+        if frame.rsv1:
+            one = one | self._get_rsv_byte(1)
+
+        if frame.rsv2:
+            one = one | self._get_rsv_byte(2)
+
+        if frame.rsv3:
+            one = one | self._get_rsv_byte(3)
+
+        # add the first bytes
+        one_bytes = WebsocketHelper.int8_to_bytes(one)
+        result.extend(one_bytes)
+        # calculate the second bytes
+        payload_length = len(frame.payload)
+        payload_length_bytearray = WebsocketHelper.int_to_bytes_for_size(payload_length, size_bytes)
+        assert len(payload_length_bytearray) == size_bytes
+
+        if size_bytes == 1:
+            length_plus_mask = payload_length | self._get_mask_int(mask)
+            length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
+            result.extend(length_plus_mask_bytes)
+        elif size_bytes == 2:
+            length_plus_mask = payload_length | self._get_mask_int(126)
+            length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
+            result.extend(length_plus_mask_bytes)
+            result.extend(payload_length_bytearray)
+        elif size_bytes == 8:
+            length_plus_mask = payload_length | self._get_mask_int(127)
+            length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
+            result.extend(length_plus_mask_bytes)
+            result.extend(payload_length_bytearray)
+        else:
+            print("Error impossible these many bytes")
+
+        if mask:
+            # TODO implemented by Ruikai and Sam
+            pass
+        else:
+            result.extend(payload)
+
+        return result
+
+    def _get_mask_int(self, mask):
+        return -128 if mask else 0
+
+
+    def _get_rsv_byte(self, rsv):
+        if rsv == 1:
+            return 0x40
+        elif rsv == 2:
+            return 0x20
+        elif rsv == 3:
+            return 0x20
+        else:
+            return 0
+
+    def _get_size_bytes(self, payload):
+        length = len(payload)
+        if length <= 125:
+            return 1
+        elif length <= 65535:
+            return 2
+        else:
+            return 8
+
 
     # server-only method
     def post_process_handshake_repsonse_as_server(self, request, response):
