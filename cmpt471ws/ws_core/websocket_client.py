@@ -76,7 +76,8 @@ class WebsocketClient:
         :param data:
         :return:
         """
-        pass
+        assert isinstance(message, str)
+        self.ws_impl.send(message)
 
     # # TODO this dispatcher might be too slow
     # def send(self, data: bytearray):
@@ -88,12 +89,12 @@ class WebsocketClient:
     #     pass
 
 
-    def run(self):
-        """
-        start the client, begin read loop
-        :return:
-        """
-        pass
+    # def run(self):
+    #     """
+    #     start the client, begin read loop
+    #     :return:
+    #     """
+    #     pass
 
 
     def _send_handshake(self):

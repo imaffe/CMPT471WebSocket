@@ -245,9 +245,9 @@ class WebsocketImpl:
         """
         # TODO
         frames = self.draft.create_text_frames(message)
-        self.send_frames(frames)
+        self._send_frames(frames)
 
-    def send_frames(self, frames):
+    def _send_frames(self, frames):
         # is the socket open ?
         if not self.is_open():
             print("connection has closed, not sending anything")
