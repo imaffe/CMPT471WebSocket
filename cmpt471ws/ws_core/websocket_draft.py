@@ -28,12 +28,13 @@ class WebsocketDraft:
         :return: None if the header is imcomplete,
         """
         return_data = data
+
         head_line, return_data = WebsocketHelper.read_string_line(return_data)
         if head_line is None:
             # do nothing and return None to indicate that this is a imcomplete header
             return None, data
         assert isinstance(head_line, str)
-        first_line_tokens = head_line.split(' ', 3)
+        first_line_tokens = head_line.split(' ', 2)
         if len(first_line_tokens) != 3:
             print("error parsing first line, invalid handshake")
             return WebsocketDecodeError("invalid header field"), data
@@ -41,26 +42,28 @@ class WebsocketDraft:
         handshake = None
         if self.role == WebsocketCommon.ROLE_CLIENT:
             handshake = self._translate_handshake_client(first_line_tokens, head_line)
-            assert isinstance(handshake, ServerHandshake)
+            assert handshake is None or isinstance(handshake, ServerHandshake)
         elif self.role == WebsocketCommon.ROLE_SERVER:
             handshake = self._translate_handshake_server(first_line_tokens, head_line)
-            assert isinstance(handshake, ClientHandshake)
+            assert handshake is None or isinstance(handshake, ClientHandshake)
         else:
             print("error invalid role")
 
         # decode error
         if handshake is None or not isinstance(handshake, BaseHandshake):
+            print("error header line not match")
             return WebsocketDecodeError("header line not match"), data
 
         key_value_line, return_data = WebsocketHelper.read_string_line(return_data)
         while key_value_line is not None and len(key_value_line) > 0:
             # None means incomplete, len == 0 means end of line
-            pair = key_value_line.split(' ', 2)
+            pair = key_value_line.split(':', 1)
             if len(pair) != 2:
                 return WebsocketDecodeError("Invalid key value line"), data
 
             # TODO currently not support one key appear in multiple lines
-            handshake.put(pair[0], pair[1])
+            print("WS_DRAFT: putting key value while translating handshake {}, {}".format(pair[0], pair[1]))
+            handshake.put(pair[0].strip(), pair[1].strip())
             key_value_line, return_data = WebsocketHelper.read_string_line(return_data)
 
         # TODO should we keep it intact ?
@@ -86,11 +89,11 @@ class WebsocketDraft:
     # TODO can either return None or return a exception
     def _translate_handshake_server(self, first_line_token, head_line):
         if 'GET' != first_line_token[0]:
-            print("Error header line first token is not GET")
+            print("Error header line first token is not GET, instead it is:{}".format(first_line_token[0]))
             return None
 
         if 'HTTP/1.1' != first_line_token[2]:
-            print("Error header line first token is not GET")
+            print("Error header line first token is not HTTP/1.1, instead it is:{}".format(first_line_token[0]))
             return None
 
         resource_descriptor = first_line_token[1]
@@ -280,15 +283,18 @@ class WebsocketDraft:
     def accept_handshake_as_client(self, request, response):
 
         assert isinstance(response, ServerHandshake)
-        if response.get(WebsocketCommon.UPGRADE) != 'websocket' or str(response.get(WebsocketCommon.CONNECTION)).find(
+        if response.get(WebsocketCommon.UPGRADE) != 'websocket' or str(response.get(WebsocketCommon.CONNECTION)).lower().find(
                 'upgrade') == -1:
+            print("WS_DRAFT: missing upgrade or connection")
             return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
 
         # TODO why do we need to verify if client handshake ?
         if response.get(WebsocketCommon.SEC_WEB_SOCKET_ACCEPT) is None:
+            print("WS_DRAFT: missing SEC_WEB_SOCKET_ACCEPT")
             return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
 
         if request.get(WebsocketCommon.SEC_WEB_SOCKET_KEY) is None:
+            print("WS_DRAFT: missing SEC_WEB_SOCKET_KEY")
             return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
 
         sec_key = request.get(WebsocketCommon.SEC_WEB_SOCKET_KEY)
@@ -300,7 +306,7 @@ class WebsocketDraft:
             return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
 
         # TODO ignore extensions and protocols
-        return WebsocketCommon.HANDSHAKE_STATE_NOT_MATCHED
+        return WebsocketCommon.HANDSHAKE_STATE_MATCHED
 
     def create_handshake(self, handshake):
         """
@@ -343,7 +349,7 @@ class WebsocketDraft:
         assert isinstance(message, str)
 
         text_frame = TextFrame()
-        text_frame.payload = WebsocketHelper.str_to_utf8_bytearray()
+        text_frame.payload = WebsocketHelper.str_to_utf8_bytearray(message)
         return [text_frame]
 
     def create_binary_frames(self, data):
@@ -468,3 +474,9 @@ class WebsocketDraft:
 
     def _generate_final_key(self, sec_key):
         assert isinstance(sec_key, str)
+        final_key = sec_key.strip() + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+        # TODO still not complete
+
+        # 1. sha1
+        # 2. encode
+        return final_key

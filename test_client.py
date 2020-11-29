@@ -8,6 +8,7 @@ def main():
     # TODO we can make this blocking
     print("trying to connect")
     client.connect()
+    client.send("Hello from Affe client")
 
 class ChatClient(WebsocketClient):
     def __init__(self, host, port):
@@ -17,7 +18,7 @@ class ChatClient(WebsocketClient):
         pass
 
     def on_open(self, ws_impl, handshake):
-        pass
+        print("Client: Websocket Connect Success")
 
 
 if __name__ == '__main__':

@@ -43,13 +43,14 @@ class WebsocketClient:
 
         print("client connect success, trying to send handshakes")
         self._send_handshake()
-
+        print("send handshake success, starting write thread")
         # start the write thread
         write_thread = Thread(target=self.write_thread)
         write_thread.start()
         try:
             while not self.is_closing() and not self.is_closed():
                 data = self.socket.recv(WebsocketCommon.DEFAULT_RCV_BUF_SIZE)
+                print("WS_CLIENT: received data from server {}".format(len(data)))
                 if len(data) == 0:
                     break
                 else:
@@ -108,7 +109,7 @@ class WebsocketClient:
         client_handshake = ClientHandshake()
         client_handshake.resource_descriptor = path
         assert isinstance(self.host, str)
-        host_and_port = self.host + str(self.port)
+        host_and_port = self.host +":" + str(self.port)
         client_handshake.put("Host", host_and_port)
         # Add headers to the handshake
         for key, value in self.headers.items():
@@ -174,12 +175,16 @@ class WebsocketClient:
 
     def write_thread(self):
         try:
-            while not self.is_closed() and self.is_closing():
+            print("WS_CLIENT: write thread started")
+            while not self.is_closed() and not self.is_closing():
                 # TODO here the data is already encodes
                 write_data = self.ws_impl.get_outqueue()
+                print("WS_CLIENT: write thread get data from queue, size {}".format(len(write_data)))
                 assert isinstance(write_data, bytearray)
                 # TODO we must guarantee that every byte in write_data is sent, thus the use of sendall()
                 self.socket.sendall(write_data)
+
+            print("WS_CLIENT: write thread ended")
 
         except:
             # TODO we should be closing the socket

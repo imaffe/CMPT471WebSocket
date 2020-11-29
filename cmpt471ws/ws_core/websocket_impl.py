@@ -61,6 +61,13 @@ class WebsocketImpl:
         # TODO should this be blocking ? yes
         return self.out_queue.get(True, None)
 
+    def get_outqueue_nonblock(self):
+        try:
+            result = self.out_queue.get(False, None)
+            return result
+        except queue.Empty as e:
+            return None
+
     """
     Actually the implementation here is a bit confusing, cause we delegate the decoding of data frames to
     the WebsocketProtocolImpl class, on the other hand, the decoding of handshake is implemented within this
@@ -122,6 +129,7 @@ class WebsocketImpl:
         """
         return_data = data
         if self.role == WebsocketCommon.ROLE_SERVER:
+            print("WS_IMPL: received server handshake data: {}".format(data.decode('ascii')))
             handshake, return_data = self.draft.translate_handshake(return_data)
 
             if handshake is None:
@@ -129,7 +137,7 @@ class WebsocketImpl:
                 return None, data
 
             if not isinstance(handshake, ClientHandshake):
-                print("error server received non ClientHandshake\n")
+                print("error server received non ClientHandshake: type {} {}".format(type(handshake), handshake.message))
 
             handshake_state = self.draft.accept_handshake_as_server(handshake)
 
@@ -142,14 +150,18 @@ class WebsocketImpl:
                     return False, data
 
                 # we need the tmp response to add AOP features
+                print("WS_IMPL: start handshake response post process")
                 response_handshake = self.draft.post_process_handshake_repsonse_as_server(handshake, response)
 
                 if isinstance(response_handshake, WebsocketDecodeError):
+                    print("Error: {}".format(response_handshake.message))
                     return False, data
-
+                print("WS_IMPL: ready to send handshake back")
                 handshake_bytearrays = self.draft.create_handshake(response_handshake)
                 # call open and inform listener
+                print("WS_IMPL: ready to write server handshake")
                 self.write(handshake_bytearrays)
+                print("WS_IMPL: write complete")
                 self.open(handshake)
                 # TODO what to return here
                 return True, return_data
@@ -210,9 +222,9 @@ class WebsocketImpl:
     def open(self, handshake: BaseHandshake):
         self.ready_state = WebsocketCommon.STATE_OPEN
         # TODO why pass self to it
-        result = self.listener.on_websocket_open(self, handshake)
-        if not result:
-            print("on_websokcet_open failed\n")
+        self.listener.on_websocket_open(self, handshake)
+        # if not result:
+        #     print("on_websocket_open failed\n")
 
     # The following method is for Closing a websocket session gracefully, include CLOSE frames.
     def is_closing(self):
@@ -226,6 +238,7 @@ class WebsocketImpl:
 
     # For clients only
     def start_handshake(self, handshake: ClientHandshake):
+        print("WS_IMPL: starting handshake")
         # TO
         handshake_req = self.draft.post_process_handshake_request_as_client(handshake)
         self.client_handshake = handshake_req

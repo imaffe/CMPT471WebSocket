@@ -3,6 +3,7 @@ import socket
 from threading import Thread
 
 from cmpt471ws.ws_core.common import WebsocketCommon
+from cmpt471ws.ws_core.server_handshake import ServerHandshake
 from cmpt471ws.ws_core.websocket_executor import WebsocketWorker
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
 from cmpt471ws.ws_core.websocket_impl import WebsocketImpl
@@ -111,6 +112,7 @@ class WebsocketServer:
         sock = ws_impl.wrapped_socket
         # read data from socket
         data = WebsocketHelper.read(ws_impl, sock)
+        print("WS_SERVER: received packet from client, string format {}".format(data.decode('ascii')))
         assert data is not None
         size = len(data)
         assert size > 0
@@ -120,6 +122,8 @@ class WebsocketServer:
 
     # TODO we are not handling any error here , should we add err handling code ?
     def do_write(self, key, event_type):
+
+        print("WS_SERVER: do_write invoked, ready to write")
         ws_impl = key.data
         assert isinstance(ws_impl, WebsocketImpl)
 
@@ -165,6 +169,7 @@ class WebsocketServer:
         """"""
         # TODO add connection in the managed connections
         if self._add_connection(ws_impl):
+            print("WS_SERVER: we opened a new handshake")
             self.on_open(ws_impl)
         else:
             print("Error server add ws_impl after handshake failed\n")
@@ -174,11 +179,11 @@ class WebsocketServer:
 
     def on_handshake_as_server(self):
         """
-        :return: handshake response
+        :return: ServerHandshake
         """
         # TODO
         print("Server received handshake")
-        return True
+        return ServerHandshake()
 
     def on_handshake_as_client(self):
         print("error on_handshake_as_client called by a server\n")
@@ -186,6 +191,7 @@ class WebsocketServer:
 
     def on_write_demand(self, ws_impl: WebsocketImpl):
         # This method actually do the write job
+        print("WS_SERVER: on write demand called")
         fileobj = ws_impl.wrapped_socket
 
         # need to register READ | WRITE events for this socket
@@ -201,6 +207,7 @@ class WebsocketServer:
         :return:
         """
         self.connections.append(ws_impl)
+        return True
         # TODO if the server is closing then we should send close frames.
 
 

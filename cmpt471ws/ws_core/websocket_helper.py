@@ -12,7 +12,12 @@ class WebsocketHelper:
     @classmethod
     def batch(cls, ws_impl):
         # TODO
-        pass
+        data = ws_impl.get_outqueue_nonblock()
+        socket = ws_impl.wrapped_socket
+
+        while data is not None:
+            socket.sendall(data)
+            data = ws_impl.get_outqueue_nonblock()
 
     @classmethod
     def read(cls, ws_impl, sock: socket.socket):
@@ -21,7 +26,8 @@ class WebsocketHelper:
         if not data:
             pass
             # TODO we should log something here
-
+        if len(data) == 0:
+            print("socket read 0 bytes")
         return data
 
     @classmethod
@@ -39,7 +45,7 @@ class WebsocketHelper:
         assert isinstance(data, bytearray)
         headline, data = cls.read_line(data)
         if headline is not None:
-            return str(headline), data
+            return WebsocketHelper.bytearray_to_ascii_string(headline), data
         else:
             return headline, data
 
@@ -82,7 +88,7 @@ class WebsocketHelper:
         return bytearray(s.encode('utf-8'))
 
     @classmethod
-    def ascii_bytearray(cls, data):
+    def bytearray_to_ascii_string(cls, data):
         assert data is not None
         assert isinstance(data, bytearray)
         return data.decode('ascii')

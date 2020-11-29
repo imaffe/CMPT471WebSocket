@@ -19,6 +19,7 @@ class ChatServer(WebsocketServer):
 
     def on_message(self, ws_impl, message):
         print("Server received message:", message + "\n")
+        ws_impl.send("Server received your message, good morning")
         self.broadcast("server got your message, this is a broad cast message LOL")
 
     def on_close(self, ws_impl):
