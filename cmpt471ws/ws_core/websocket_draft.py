@@ -1,5 +1,6 @@
 import base64
 import datetime
+import random
 
 from cmpt471ws.ws_core.base_handshake import BaseHandshake
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
@@ -176,7 +177,12 @@ class WebsocketDraft:
 
         if mask:
             # TODO give this to Sam or Ruikai
-            pass
+            mask_key = return_data[:4]
+            return_data = return_data[4:]
+            payload = bytearray()
+            for i in range(payloadlength):
+                payload.extend(WebsocketHelper.int_to_bytes_for_size(return_data[i] ^ mask_key[i%4],4))
+            return_data = return_data[payloadlength:]
         else:
             payload = return_data[:payloadlength]
             return_data = return_data[payloadlength:]
@@ -418,7 +424,12 @@ class WebsocketDraft:
 
         if mask:
             # TODO implemented by Ruikai and Sam
-            pass
+            mask_key = bytearray()
+            mask_key.extend(WebsocketHelper.int_to_bytes_for_size(random.randint(-pow(2, 31), pow(2,31)-1), 4))
+            result.extend(mask_key)
+            i = 0
+            for i in range(len(payload)):
+                result.extend(WebsocketHelper.int_to_bytes_for_size((payload[i] ^ mask_key[(i % 4)]), 4))
         else:
             result.extend(payload)
 

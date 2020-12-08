@@ -268,7 +268,7 @@ class WebsocketImpl:
             print("connection has closed, not sending anything")
             return
 
-        assert frames is not None
+        assert frames is not None, "send frames has input None frame"
         data_list = []
         for frame in frames:
             data_list.append(self.draft.create_bytearray_for_frame(frame))

@@ -7,6 +7,7 @@ from cmpt471ws.ws_core.server_handshake import ServerHandshake
 from cmpt471ws.ws_core.websocket_executor import WebsocketWorker
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
 from cmpt471ws.ws_core.websocket_impl import WebsocketImpl
+from cmpt471ws.ws_core.websocket_draft import WebsocketDraft
 
 
 class WebsocketServer:
@@ -112,6 +113,7 @@ class WebsocketServer:
         sock = ws_impl.wrapped_socket
         # read data from socket
         data = WebsocketHelper.read(ws_impl, sock)
+
         print("WS_SERVER: received packet from client, string format {}".format(data.decode('ascii')))
         assert data is not None
         size = len(data)
