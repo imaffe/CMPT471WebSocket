@@ -10,7 +10,7 @@ def main():
     client.connect()
     client.send("Hello from Affe client")
 
-
+    client.close()
     print('-------------------------------\nthis endth the test\n')
 
 class ChatClient(WebsocketClient):

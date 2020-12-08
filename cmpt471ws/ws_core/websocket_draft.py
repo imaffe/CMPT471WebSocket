@@ -38,19 +38,18 @@ class WebsocketDraft:
         if len(first_line_tokens) != 3:
             print("error parsing first line, invalid handshake")
             raise WebsocketDecodeError("invalid header field")
-
-        handshake = None
-        if self.role == WebsocketCommon.ROLE_CLIENT:
-            handshake = self._translate_handshake_client(first_line_tokens, head_line)
-            assert handshake is None or isinstance(handshake, ServerHandshake)
-        elif self.role == WebsocketCommon.ROLE_SERVER:
-            handshake = self._translate_handshake_server(first_line_tokens, head_line)
-            assert handshake is None or isinstance(handshake, ClientHandshake)
-        else:
-            print("error invalid role")
-
-        # decode error
-        if handshake is None or not isinstance(handshake, BaseHandshake):
+        
+        try:
+            handshake = None
+            if self.role == WebsocketCommon.ROLE_CLIENT:
+                handshake = self._translate_handshake_client(first_line_tokens, head_line)
+                assert handshake is None or isinstance(handshake, ServerHandshake)
+            elif self.role == WebsocketCommon.ROLE_SERVER:
+                handshake = self._translate_handshake_server(first_line_tokens, head_line)
+                assert handshake is None or isinstance(handshake, ClientHandshake)
+            else:
+                raise ValueError("error invalid role")
+        except WebsocketDecodeError as e:
             print("error header line not match")
             raise WebsocketDecodeError("header line not match")
 
@@ -86,15 +85,13 @@ class WebsocketDraft:
         http_status_message = first_line_token[2]
         return ServerHandshake(http_status, http_status_message)
 
-    # TODO can either return None or return a exception
+    # can raise a exception
     def _translate_handshake_server(self, first_line_token, head_line):
         if 'GET' != first_line_token[0]:
-            print("Error header line first token is not GET, instead it is:{}".format(first_line_token[0]))
-            return None
+            raise WebsocketDecodeError("Error header line first token is not GET, instead it is:{}".format(first_line_token[0]))
 
         if 'HTTP/1.1' != first_line_token[2]:
-            print("Error header line first token is not HTTP/1.1, instead it is:{}".format(first_line_token[0]))
-            return None
+            raise WebsocketDecodeError("Error header line first token is not HTTP/1.1, instead it is:{}".format(first_line_token[0]))
 
         resource_descriptor = first_line_token[1]
         return ClientHandshake(resource_descriptor)
@@ -151,17 +148,17 @@ class WebsocketDraft:
         if payloadlength < 0 or payloadlength > 125:
             # TODO the first two bits should not be passed in
             print("after truncate the first 2 bytes : {}".format(WebsocketHelper.bytearray_to_ascii_string(return_data)))
-            payloadlength, real_packet_size, return_data = self._translate_single_frame_for_real_length(
-                return_data,
-                opcode,
-                payloadlength,
-                data_len,
-                real_packet_size
-            )
-
-        # TODO seems using exception is the best way to do it
-        if isinstance(payloadlength, WebsocketInvalidFrameError):
-            return payloadlength, data
+            try:
+                payloadlength, real_packet_size, return_data = self._translate_single_frame_for_real_length(
+                    return_data,
+                    opcode,
+                    payloadlength,
+                    data_len,
+                    real_packet_size
+                )
+            except WebsocketInvalidFrameError as e:
+                raise e
+            
         if data_len < real_packet_size:
             # Imcomplete data
             return None, data
@@ -196,7 +193,7 @@ class WebsocketDraft:
             print("after decode the bytes left are {}".format(len(return_data)))
             return frame, return_data
         else:
-            return WebsocketInvalidFrameError("Invalid frame"), data
+            raise WebsocketInvalidFrameError("Invalid frame", data)
 
         # self._check_payload_limit(payloadlength)
 
@@ -215,7 +212,7 @@ class WebsocketDraft:
         payloadlength = oldpayloadlength
         real_packet_size = old_real_packet_size
         if opcode == WebsocketCommon.PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
-            return WebsocketInvalidFrameError("Some frames cannot have longer payload length"), None, data
+            raise WebsocketInvalidFrameError("Some frames cannot have longer payload length", data)
 
         if payloadlength == 126:
             real_packet_size += 2
@@ -249,8 +246,7 @@ class WebsocketDraft:
         elif n == 10:
             return WebsocketCommon.OP_CODE_PONG
         else:
-            print("Error opcode invalid")
-            return -1
+            raise ValueError("Error opcode invalid")
 
     def process_frame(self, ws_impl, frame):
         if frame.op == WebsocketCommon.OP_CODE_CLOSING:
