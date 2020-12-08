@@ -7,7 +7,7 @@ from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.frames.websocket_base_frame import Frame
 from cmpt471ws.ws_core.frames.websocket_base_frame import TextFrame
 from cmpt471ws.ws_core.server_handshake import ServerHandshake
-from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError, WebsocketInvalidFrameError
+from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError, WebsocketInvalidFrameError, WebsocketIncompletePacketError
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
 
 
@@ -31,13 +31,13 @@ class WebsocketDraft:
 
         head_line, return_data = WebsocketHelper.read_string_line(return_data)
         if head_line is None:
-            # do nothing and return None to indicate that this is a imcomplete header
-            return None, data
+            # do nothing and raise WebsocketIncompletePacketError to indicate that this is a imcomplete header
+            raise WebsocketIncompletePacketError('error translate_handshake: imcomplete header')
         assert isinstance(head_line, str)
         first_line_tokens = head_line.split(' ', 2)
         if len(first_line_tokens) != 3:
             print("error parsing first line, invalid handshake")
-            return WebsocketDecodeError("invalid header field"), data
+            raise WebsocketDecodeError("invalid header field")
 
         handshake = None
         if self.role == WebsocketCommon.ROLE_CLIENT:
@@ -52,14 +52,14 @@ class WebsocketDraft:
         # decode error
         if handshake is None or not isinstance(handshake, BaseHandshake):
             print("error header line not match")
-            return WebsocketDecodeError("header line not match"), data
+            raise WebsocketDecodeError("header line not match")
 
         key_value_line, return_data = WebsocketHelper.read_string_line(return_data)
         while key_value_line is not None and len(key_value_line) > 0:
             # None means incomplete, len == 0 means end of line
             pair = key_value_line.split(':', 1)
             if len(pair) != 2:
-                return WebsocketDecodeError("Invalid key value line"), data
+                raise WebsocketDecodeError("Invalid key value line")
 
             # TODO currently not support one key appear in multiple lines
             print("WS_DRAFT: putting key value while translating handshake {}, {}".format(pair[0], pair[1]))
@@ -274,8 +274,7 @@ class WebsocketDraft:
             base64_message = base64.b64encode(frame.payload).decode('ascii')
             ws_impl.listener.on_websocket_message(ws_impl, base64_message)
         else:
-            print("Error, invalid opcode while processing the frames")
-            return False
+            raise ValueError("Error, invalid opcode while processing the frames")
 
         return True
 
@@ -457,7 +456,7 @@ class WebsocketDraft:
         sec_key = request.get(WebsocketCommon.SEC_WEB_SOCKET_KEY)
         # TODO what could the sec_key be here ?
         if sec_key is None or sec_key == '':
-            return WebsocketDecodeError("Invalid handshake")
+            raise WebsocketDecodeError("Invalid handshake")
         assert isinstance(sec_key, str)
         response.put(WebsocketCommon.SEC_WEB_SOCKET_ACCEPT, self._generate_final_key(sec_key))
 

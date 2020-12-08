@@ -8,6 +8,8 @@ def main():
     server.start()
     print("chat server started\n")
 
+    print('-------------------------------\nthis endth the test\n')
+
 class ChatServer(WebsocketServer):
     def __init__(self, host, port):
         WebsocketServer.__init__(self, host, port)

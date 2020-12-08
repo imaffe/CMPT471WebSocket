@@ -8,3 +8,7 @@ class WebsocketDecodeError(Exception):
 class WebsocketInvalidFrameError(Exception):
     def __init__(self, message):
         self.message = message
+
+class WebsocketIncompletePacketError(Exception):
+    def __init__(self, message):
+        self.message = message

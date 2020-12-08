@@ -7,7 +7,7 @@ from cmpt471ws.ws_core.client_handshake import ClientHandshake
 from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.server_handshake import ServerHandshake
 from cmpt471ws.ws_core.websocket_draft import WebsocketDraft
-from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError
+from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError,WebsocketInvalidFrameError,WebsocketIncompletePacketError
 
 
 class WebsocketImpl:
@@ -114,12 +114,13 @@ class WebsocketImpl:
         assert frames is not None
 
         for f in frames:
-            result = self.draft.process_frame(self, f)
+            try:
+                result = self.draft.process_frame(self, f)
+                print("WS_IMPL:  processes one frame")
+            except ValueError as e:
             # TODO what to do when exceptions happens ?
-            print("WS_IMPL:  processes one frame")
-            if not result:
-                print("Error while process frames")
-                return
+                raise WebsocketInvalidFrameError("Error while process frames")
+
 
     # this method should return if the handshake decodeing has completed, and if completed how many bytes
 
@@ -132,14 +133,16 @@ class WebsocketImpl:
         return_data = data
         if self.role == WebsocketCommon.ROLE_SERVER:
             print("WS_IMPL: received server handshake data: {}".format(data.decode('ascii')))
-            handshake, return_data = self.draft.translate_handshake(return_data)
 
-            if handshake is None:
+            try:
+                handshake, return_data = self.draft.translate_handshake(return_data)
+            except WebsocketIncompletePacketError as e:
                 # incomplete packet, need to do something
                 return None, data
-
-            if not isinstance(handshake, ClientHandshake):
+            except WebsocketDecodeError as e:
+                print(e)
                 print("error server received non ClientHandshake: type {} {}".format(type(handshake), handshake.message))
+                
 
             handshake_state = self.draft.accept_handshake_as_server(handshake)
 
@@ -153,11 +156,12 @@ class WebsocketImpl:
 
                 # we need the tmp response to add AOP features
                 print("WS_IMPL: start handshake response post process")
-                response_handshake = self.draft.post_process_handshake_repsonse_as_server(handshake, response)
-
-                if isinstance(response_handshake, WebsocketDecodeError):
+                try:
+                    response_handshake = self.draft.post_process_handshake_repsonse_as_server(handshake, response)
+                except WebsocketDecodeError as e:
                     print("Error: {}".format(response_handshake.message))
                     return False, data
+                   
                 print("WS_IMPL: ready to send handshake back")
                 handshake_bytearrays = self.draft.create_handshake(response_handshake)
                 # call open and inform listener
@@ -173,14 +177,15 @@ class WebsocketImpl:
                 return False, data
 
         elif self.role == WebsocketCommon.ROLE_CLIENT:
-            handshake, return_data = self.draft.translate_handshake(return_data)
-
-            if handshake is None:
+            try:
+                handshake, return_data = self.draft.translate_handshake(return_data)
+            except WebsocketIncompletePacketError as e:
                 # incomplete packet, need to do something
                 return None, data
-
-            if not isinstance(handshake, ServerHandshake):
+            except WebsocketDecodeError as e:
+                print(e)
                 print("error client received non ServerHandhshake")
+                
             handshake_state = self.draft.accept_handshake_as_client(self.client_handshake, handshake)
             # check the handshake status
             if handshake_state == WebsocketCommon.HANDSHAKE_STATE_MATCHED:
@@ -197,9 +202,7 @@ class WebsocketImpl:
                 print("Error handshake not in Match state, close connection")
                 return False, data
         else:
-            # TODO should raise exception
-            print("invalid role\n")
-            return False, data
+            raise WebsocketDecodeError("invalid role")
 
 
     # common funcionality

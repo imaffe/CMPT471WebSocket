@@ -10,6 +10,9 @@ def main():
     client.connect()
     client.send("Hello from Affe client")
 
+
+    print('-------------------------------\nthis endth the test\n')
+
 class ChatClient(WebsocketClient):
     def __init__(self, host, port):
         WebsocketClient.__init__(self, host, port)
