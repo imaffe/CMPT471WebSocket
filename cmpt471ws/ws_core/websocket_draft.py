@@ -218,7 +218,7 @@ class WebsocketDraft:
         return_data = data.copy()
         payloadlength = oldpayloadlength
         real_packet_size = old_real_packet_size
-        if opcode == WebsocketCommon.PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
+        if opcode == WebsocketCommon.OP_CODE_PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
             raise WebsocketInvalidFrameError("Some frames cannot have longer payload length", data)
 
 
