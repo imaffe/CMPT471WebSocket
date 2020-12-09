@@ -1,5 +1,6 @@
 import base64
 import datetime
+import random
 
 from cmpt471ws.ws_core.base_handshake import BaseHandshake
 from cmpt471ws.ws_core.client_handshake import ClientHandshake
@@ -7,7 +8,7 @@ from cmpt471ws.ws_core.common import WebsocketCommon
 from cmpt471ws.ws_core.frames.websocket_base_frame import Frame
 from cmpt471ws.ws_core.frames.websocket_base_frame import TextFrame
 from cmpt471ws.ws_core.server_handshake import ServerHandshake
-from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError, WebsocketInvalidFrameError
+from cmpt471ws.ws_core.websocket_exceptions import WebsocketDecodeError, WebsocketInvalidFrameError, WebsocketIncompletePacketError
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
 
 
@@ -31,35 +32,34 @@ class WebsocketDraft:
 
         head_line, return_data = WebsocketHelper.read_string_line(return_data)
         if head_line is None:
-            # do nothing and return None to indicate that this is a imcomplete header
-            return None, data
+            # do nothing and raise WebsocketIncompletePacketError to indicate that this is a imcomplete header
+            raise WebsocketIncompletePacketError('error translate_handshake: imcomplete header')
         assert isinstance(head_line, str)
         first_line_tokens = head_line.split(' ', 2)
         if len(first_line_tokens) != 3:
             print("error parsing first line, invalid handshake")
-            return WebsocketDecodeError("invalid header field"), data
-
-        handshake = None
-        if self.role == WebsocketCommon.ROLE_CLIENT:
-            handshake = self._translate_handshake_client(first_line_tokens, head_line)
-            assert handshake is None or isinstance(handshake, ServerHandshake)
-        elif self.role == WebsocketCommon.ROLE_SERVER:
-            handshake = self._translate_handshake_server(first_line_tokens, head_line)
-            assert handshake is None or isinstance(handshake, ClientHandshake)
-        else:
-            print("error invalid role")
-
-        # decode error
-        if handshake is None or not isinstance(handshake, BaseHandshake):
+            raise WebsocketDecodeError("invalid header field")
+        
+        try:
+            handshake = None
+            if self.role == WebsocketCommon.ROLE_CLIENT:
+                handshake = self._translate_handshake_client(first_line_tokens, head_line)
+                assert handshake is None or isinstance(handshake, ServerHandshake)
+            elif self.role == WebsocketCommon.ROLE_SERVER:
+                handshake = self._translate_handshake_server(first_line_tokens, head_line)
+                assert handshake is None or isinstance(handshake, ClientHandshake)
+            else:
+                raise ValueError("error invalid role")
+        except WebsocketDecodeError as e:
             print("error header line not match")
-            return WebsocketDecodeError("header line not match"), data
+            raise WebsocketDecodeError("header line not match")
 
         key_value_line, return_data = WebsocketHelper.read_string_line(return_data)
         while key_value_line is not None and len(key_value_line) > 0:
             # None means incomplete, len == 0 means end of line
             pair = key_value_line.split(':', 1)
             if len(pair) != 2:
-                return WebsocketDecodeError("Invalid key value line"), data
+                raise WebsocketDecodeError("Invalid key value line")
 
             # TODO currently not support one key appear in multiple lines
             print("WS_DRAFT: putting key value while translating handshake {}, {}".format(pair[0], pair[1]))
@@ -86,15 +86,13 @@ class WebsocketDraft:
         http_status_message = first_line_token[2]
         return ServerHandshake(http_status, http_status_message)
 
-    # TODO can either return None or return a exception
+    # can raise a exception
     def _translate_handshake_server(self, first_line_token, head_line):
         if 'GET' != first_line_token[0]:
-            print("Error header line first token is not GET, instead it is:{}".format(first_line_token[0]))
-            return None
+            raise WebsocketDecodeError("Error header line first token is not GET, instead it is:{}".format(first_line_token[0]))
 
         if 'HTTP/1.1' != first_line_token[2]:
-            print("Error header line first token is not HTTP/1.1, instead it is:{}".format(first_line_token[0]))
-            return None
+            raise WebsocketDecodeError("Error header line first token is not HTTP/1.1, instead it is:{}".format(first_line_token[0]))
 
         resource_descriptor = first_line_token[1]
         return ClientHandshake(resource_descriptor)
@@ -150,22 +148,19 @@ class WebsocketDraft:
         return_data = return_data[2:]
         if payloadlength < 0 or payloadlength > 125:
             # TODO the first two bits should not be passed in
-            # print("after truncate the first 2 bytes : {}".format(WebsocketHelper.bytearray_to_ascii_string(return_data)))
-            payloadlength, real_packet_size, return_data = self._translate_single_frame_for_real_length(
-                return_data,
-                opcode,
-                payloadlength,
-                data_len,
-                real_packet_size
-            )
 
-        else:
-            pass
-
-
-        # TODO seems using exception is the best way to do it
-        if isinstance(payloadlength, WebsocketInvalidFrameError):
-            return payloadlength, data
+            print("after truncate the first 2 bytes : {}".format(WebsocketHelper.bytearray_to_ascii_string(return_data)))
+            try:
+                payloadlength, real_packet_size, return_data = self._translate_single_frame_for_real_length(
+                    return_data,
+                    opcode,
+                    payloadlength,
+                    data_len,
+                    real_packet_size
+                )
+            except WebsocketInvalidFrameError as e:
+                raise e
+            
         if data_len < real_packet_size:
             # Imcomplete data
             return None, data
@@ -180,7 +175,12 @@ class WebsocketDraft:
 
         if mask:
             # TODO give this to Sam or Ruikai
-            pass
+            mask_key = return_data[:4]
+            return_data = return_data[4:]
+            payload = bytearray()
+            for i in range(payloadlength):
+                payload.extend(WebsocketHelper.int_to_bytes_for_size(return_data[i] ^ mask_key[i%4],4))
+            return_data = return_data[payloadlength:]
         else:
             payload = return_data[:payloadlength]
             return_data = return_data[payloadlength:]
@@ -200,7 +200,7 @@ class WebsocketDraft:
             print("after decode the bytes left are {}".format(len(return_data)))
             return frame, return_data
         else:
-            return WebsocketInvalidFrameError("Invalid frame"), data
+            raise WebsocketInvalidFrameError("Invalid frame", data)
 
         # self._check_payload_limit(payloadlength)
 
@@ -218,8 +218,9 @@ class WebsocketDraft:
         return_data = data.copy()
         payloadlength = oldpayloadlength
         real_packet_size = old_real_packet_size
-        if opcode == WebsocketCommon.OP_CODE_PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
-            return WebsocketInvalidFrameError("Some frames cannot have longer payload length"), None, data
+        if opcode == WebsocketCommon.PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
+            raise WebsocketInvalidFrameError("Some frames cannot have longer payload length", data)
+
 
         if payloadlength == 126:
             real_packet_size += 2
@@ -253,8 +254,7 @@ class WebsocketDraft:
         elif n == 10:
             return WebsocketCommon.OP_CODE_PONG
         else:
-            print("Error opcode invalid")
-            return -1
+            raise ValueError("Error opcode invalid")
 
     def process_frame(self, ws_impl, frame):
         if frame.op == WebsocketCommon.OP_CODE_CLOSING:
@@ -278,8 +278,7 @@ class WebsocketDraft:
             base64_message = base64.b64encode(frame.payload).decode('ascii')
             ws_impl.listener.on_websocket_message(ws_impl, base64_message)
         else:
-            print("Error, invalid opcode while processing the frames")
-            return False
+            raise ValueError("Error, invalid opcode while processing the frames")
 
         return True
 
@@ -422,7 +421,12 @@ class WebsocketDraft:
 
         if mask:
             # TODO implemented by Ruikai and Sam
-            pass
+            mask_key = bytearray()
+            mask_key.extend(WebsocketHelper.int_to_bytes_for_size(random.randint(-pow(2, 31), pow(2,31)-1), 4))
+            result.extend(mask_key)
+            i = 0
+            for i in range(len(payload)):
+                result.extend(WebsocketHelper.int_to_bytes_for_size((payload[i] ^ mask_key[(i % 4)]), 4))
         else:
             result.extend(payload)
 
@@ -461,7 +465,7 @@ class WebsocketDraft:
         sec_key = request.get(WebsocketCommon.SEC_WEB_SOCKET_KEY)
         # TODO what could the sec_key be here ?
         if sec_key is None or sec_key == '':
-            return WebsocketDecodeError("Invalid handshake")
+            raise WebsocketDecodeError("Invalid handshake")
         assert isinstance(sec_key, str)
         response.put(WebsocketCommon.SEC_WEB_SOCKET_ACCEPT, self._generate_final_key(sec_key))
 

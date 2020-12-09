@@ -7,6 +7,7 @@ from cmpt471ws.ws_core.server_handshake import ServerHandshake
 from cmpt471ws.ws_core.websocket_executor import WebsocketWorker
 from cmpt471ws.ws_core.websocket_helper import WebsocketHelper
 from cmpt471ws.ws_core.websocket_impl import WebsocketImpl
+from cmpt471ws.ws_core.websocket_draft import WebsocketDraft
 
 
 class WebsocketServer:
@@ -112,7 +113,8 @@ class WebsocketServer:
         sock = ws_impl.wrapped_socket
         # read data from socket
         data = WebsocketHelper.read(ws_impl, sock)
-        # print("WS_SERVER: received packet from client, string format {}".format(data.decode('utf-8')))
+        
+        print("WS_SERVER: received packet from client, string format {}".format(data.decode('ascii')))
         assert data is not None
         size = len(data)
         # assert size > 0
@@ -175,7 +177,7 @@ class WebsocketServer:
             print("WS_SERVER: we opened a new handshake")
             self.on_open(ws_impl)
         else:
-            print("Error server add ws_impl after handshake failed\n")
+            raise RuntimeError("Error server add ws_impl after handshake failed")
 
     def on_websocket_close(self, ws_impl: WebsocketImpl, message):
         pass
@@ -189,8 +191,7 @@ class WebsocketServer:
         return ServerHandshake()
 
     def on_handshake_as_client(self):
-        print("error on_handshake_as_client called by a server\n")
-        return None
+        raise RuntimeError("error on_handshake_as_client called by a server")
 
     def on_write_demand(self, ws_impl: WebsocketImpl):
         # This method actually do the write job

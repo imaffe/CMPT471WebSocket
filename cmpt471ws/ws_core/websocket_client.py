@@ -166,8 +166,7 @@ class WebsocketClient:
         self.on_close(ws_impl, message)
 
     def on_handshake_as_server(self):
-        print("error on_handshake_as_server called by a client\n")
-        return None
+        raise RuntimeError("error on_handshake_as_server called by a client")
 
     def on_handshake_as_client(self):
         print("Client received handshake")

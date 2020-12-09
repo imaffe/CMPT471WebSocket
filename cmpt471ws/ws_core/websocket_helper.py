@@ -24,8 +24,7 @@ class WebsocketHelper:
         # TODO this should always be non-blocking
         data = sock.recv(WebsocketCommon.DEFAULT_RCV_BUF_SIZE)
         if not data:
-            pass
-            # TODO we should log something here
+            print("socket data is empty")
         if len(data) == 0:
             print("socket read 0 bytes")
         return data
