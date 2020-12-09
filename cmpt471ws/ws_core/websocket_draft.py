@@ -150,7 +150,7 @@ class WebsocketDraft:
         return_data = return_data[2:]
         if payloadlength < 0 or payloadlength > 125:
             # TODO the first two bits should not be passed in
-            print("after truncate the first 2 bytes : {}".format(WebsocketHelper.bytearray_to_ascii_string(return_data)))
+            # print("after truncate the first 2 bytes : {}".format(WebsocketHelper.bytearray_to_ascii_string(return_data)))
             payloadlength, real_packet_size, return_data = self._translate_single_frame_for_real_length(
                 return_data,
                 opcode,
@@ -158,6 +158,10 @@ class WebsocketDraft:
                 data_len,
                 real_packet_size
             )
+
+        else:
+            pass
+
 
         # TODO seems using exception is the best way to do it
         if isinstance(payloadlength, WebsocketInvalidFrameError):
@@ -214,7 +218,7 @@ class WebsocketDraft:
         return_data = data.copy()
         payloadlength = oldpayloadlength
         real_packet_size = old_real_packet_size
-        if opcode == WebsocketCommon.PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
+        if opcode == WebsocketCommon.OP_CODE_PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
             return WebsocketInvalidFrameError("Some frames cannot have longer payload length"), None, data
 
         if payloadlength == 126:
@@ -404,12 +408,12 @@ class WebsocketDraft:
             length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
             result.extend(length_plus_mask_bytes)
         elif size_bytes == 2:
-            length_plus_mask = payload_length | self._get_mask_int(126)
+            length_plus_mask = 126 | self._get_mask_int(mask)
             length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
             result.extend(length_plus_mask_bytes)
             result.extend(payload_length_bytearray)
         elif size_bytes == 8:
-            length_plus_mask = payload_length | self._get_mask_int(127)
+            length_plus_mask = 127 | self._get_mask_int(mask)
             length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
             result.extend(length_plus_mask_bytes)
             result.extend(payload_length_bytearray)

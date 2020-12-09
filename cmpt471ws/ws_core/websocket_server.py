@@ -112,7 +112,7 @@ class WebsocketServer:
         sock = ws_impl.wrapped_socket
         # read data from socket
         data = WebsocketHelper.read(ws_impl, sock)
-        print("WS_SERVER: received packet from client, string format {}".format(data.decode('ascii')))
+        # print("WS_SERVER: received packet from client, string format {}".format(data.decode('utf-8')))
         assert data is not None
         size = len(data)
         # assert size > 0
