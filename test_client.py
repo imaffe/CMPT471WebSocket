@@ -23,4 +23,3 @@ class ChatClient(WebsocketClient):
 
 if __name__ == '__main__':
     main()
-
