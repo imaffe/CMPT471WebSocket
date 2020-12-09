@@ -5,6 +5,8 @@ import argparse
 import random
 import string
 
+count = 1
+
 def main(args):
     print("chat server starting\n")
     server = ChatServer(args.ip, args.port)
@@ -23,9 +25,11 @@ class ChatServer(WebsocketServer):
         # TODO server currently  do not support send
 
     def on_message(self, ws_impl, message):
+        global count
         print("Server received message:", message + "\n")
-        ws_impl.send(f'Server respond message: {args.respond}')
+        ws_impl.send(f'Server respond message: {args.respond} {count}')
         self.broadcast(f'Server broadcast message: {args.broadcast}')
+        count = count+1
 
     def on_close(self, ws_impl):
         pass
