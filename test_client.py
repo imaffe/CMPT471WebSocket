@@ -5,7 +5,7 @@ import argparse
 import random
 import string
 
-def main():
+def main(args):
     try:
         client = ChatClient(args.ip, args.port)
 
