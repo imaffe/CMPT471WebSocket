@@ -148,6 +148,7 @@ class WebsocketDraft:
         return_data = return_data[2:]
         if payloadlength < 0 or payloadlength > 125:
             # TODO the first two bits should not be passed in
+
             print("after truncate the first 2 bytes : {}".format(WebsocketHelper.bytearray_to_ascii_string(return_data)))
             try:
                 payloadlength, real_packet_size, return_data = self._translate_single_frame_for_real_length(
@@ -219,6 +220,7 @@ class WebsocketDraft:
         real_packet_size = old_real_packet_size
         if opcode == WebsocketCommon.PING or opcode == WebsocketCommon.OP_CODE_PONG or opcode == WebsocketCommon.OP_CODE_CLOSING:
             raise WebsocketInvalidFrameError("Some frames cannot have longer payload length", data)
+
 
         if payloadlength == 126:
             real_packet_size += 2
@@ -405,12 +407,12 @@ class WebsocketDraft:
             length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
             result.extend(length_plus_mask_bytes)
         elif size_bytes == 2:
-            length_plus_mask = payload_length | self._get_mask_int(126)
+            length_plus_mask = 126 | self._get_mask_int(mask)
             length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
             result.extend(length_plus_mask_bytes)
             result.extend(payload_length_bytearray)
         elif size_bytes == 8:
-            length_plus_mask = payload_length | self._get_mask_int(127)
+            length_plus_mask = 127 | self._get_mask_int(mask)
             length_plus_mask_bytes = WebsocketHelper.int8_to_bytes(length_plus_mask)
             result.extend(length_plus_mask_bytes)
             result.extend(payload_length_bytearray)
