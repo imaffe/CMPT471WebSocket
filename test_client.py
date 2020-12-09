@@ -16,8 +16,8 @@ def main(args):
             client.send(msg)
             print(f'Client sent message: {msg}')
 
-        client.close()
         print('-------------------------------\nthis endth the test\n')
+        client.close()
     except Exception as e:
         raise e
 

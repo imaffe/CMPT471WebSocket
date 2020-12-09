@@ -92,6 +92,12 @@ class WebsocketHelper:
         assert isinstance(data, bytearray)
         return data.decode('ascii')
 
+    @classmethod
+    def bytearray_to_utf8_string(cls, data):
+        assert data is not None
+        assert isinstance(data, bytearray)
+        return data.decode('utf-8')
+
 
     # All bytes int conversion should be using these methods
 

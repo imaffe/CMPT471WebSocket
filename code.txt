@@ -1,0 +1,29 @@
+Envoirenment: Python 3.6
+
+How to Install:
+	We have provided WebsocketClient and WebsocketServer. Unlike those libraries for which users need to register callbacks, in order to use our interfaces, you should implement your own client and server classes (as done in test_client.py and test_server.py). Functions that are not implemented yet by our libraries, such as on_message, on_open, should be overrided by users, as callbacks.
+	For the server, users should implement on_open, on_message and on_close;
+	For the client, users should implement on_message and on_open.
+Known issues:
+	1.The closing part may not work properly
+	2.Sending large strings may cause decoding problems
+Test Cases:
+	1. Send one message:
+		Run the server first:
+			python3 test_server.py
+		Then run the client:
+			python3 test_client.py -t 0
+
+
+		The server should display "Server received message: Client Test Message"
+		And the client should display "Client: received message from server:Server respond message: Server Test Respond 1"
+	
+	2. Send 20 random messages of lengths between 10 and 100:
+		Run the server first:
+			python3 test_server.py
+		Then run the client:
+			python3 test_client.py -t 1
+
+		The server should display messages received, such as "Server received message: WQ3YSX8Q2FOVA0KN2LRT5NBOP2"
+
+		And the client should display messages sent and responses received, such as "Client sent message: WQ3YSX8Q2FOVA0KN2LRT5NBOP2" and "Client: received message from server:Server respond message: Server Test Respond 20"
