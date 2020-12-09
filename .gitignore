@@ -2,3 +2,4 @@
 cmpt471ws/__pycache__/
 cmpt471ws/ws_core/__pycache__/
 cmpt471ws/ws_core/frames/__pycache__/
+*.pyc
